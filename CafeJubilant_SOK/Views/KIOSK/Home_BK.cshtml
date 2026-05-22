@@ -1,0 +1,582 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/img/solution-details.png" sizes="106x104">
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.8/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isBetween.js"></script>
+
+    <script src="/js/session.js"></script>
+    <script type="module" src="/js/GetHomeAPI.js"></script>
+    <link rel="stylesheet" type="text/css" href="/css/sok.css">
+    <script type="module">
+        const sessionId = await window.SessionUtils.createDeviceFingerprint();
+        const token = window.SessionUtils.createRandomSessionToken();
+        localStorage.removeItem("selectedLang");
+        localStorage.removeItem("currentLanguage");
+
+    </script>
+    <script>
+        const translations = {
+            en: {
+                takeaway_title: "Take Away",
+                takeaway_desc: "Order now and collect your food when it's ready.<br>Perfect for when you're on the move!",
+                takeaway_button: "Order for Take Away",
+                dinein_title: "Dine In",
+                dinein_desc: "Stay and enjoy your meal in our comfortable dining area.",
+                dinein_button: "Order for Dine In",
+                footer_text: "Touch screen to begin • Available 24/7"
+            },
+            es: {
+                takeaway_title: "Para Llevar",
+                takeaway_desc: "Ordena ahora y recoge tu comida when esté lista.<br>¡Perfecto para cuando estés en movimiento!",
+                takeaway_button: "Ordenar Para Llevar",
+                dinein_title: "Comer Aquí",
+                dinein_desc: "Quédate y disfruta tu comida en nuestra cómoda área de comedor.",
+                dinein_button: "Ordenar Para Comer Aquí",
+                footer_text: "Toca la pantalla para comenzar • Disponible 24/7"
+            },
+            fr: {
+                takeaway_title: "À Emporter",
+                takeaway_desc: "Commandez maintenant et récupérez votre nourriture quand elle sera prête.<br>Parfait quand vous êtes en déplacement !",
+                takeaway_button: "Commander À Emporter",
+                dinein_title: "Sur Place",
+                dinein_desc: "Restez et savourez votre repas dans notre espace de restauration confortable.",
+                dinein_button: "Commander Sur Place",
+                footer_text: "Touchez l'écran pour commencer • Disponible 24h/24"
+            },
+            de: {
+                takeaway_title: "Zum Mitnehmen",
+                takeaway_desc: "Bestellen Sie jetzt und holen Sie Ihr Essen ab, wenn es fertig ist.<br>Perfekt für unterwegs!",
+                takeaway_button: "Zum Mitnehmen bestellen",
+                dinein_title: "Vor Ort essen",
+                dinein_desc: "Bleiben Sie und genießen Sie Ihr Essen in unserem gemütlichen Essbereich.",
+                dinein_button: "Vor Ort bestellen",
+                footer_text: "Bildschirm berühren zum Starten • 24/7 verfügbar"
+            },
+            zh: {
+                takeaway_title: "外带",
+                takeaway_desc: "现在订购，准备好后来取餐。<br>非常适合忙碌的您！",
+                takeaway_button: "外带订购",
+                dinein_title: "堂食",
+                dinein_desc: "留下来在我们舒适的用餐区享受您的美食。",
+                dinein_button: "堂食订购",
+                footer_text: "触摸屏幕开始 • 24小时营业"
+            },
+            ja: {
+                welcome: " キオスクへようこそ！<br>下のオプションをタッチして注文を開始してください。",
+                takeaway_title: "テイクアウト",
+                takeaway_desc: "今すぐ注文して、準備ができたら受け取りに来てください。<br>移動中に最適！",
+                takeaway_button: "テイクアウト注文",
+                dinein_title: "店内飲食",
+                dinein_desc: "快適なダイニングエリアで食事をお楽しみください。",
+                dinein_button: "店内飲食注文",
+                footer_text: "画面をタッチして開始 • 24時間営業"
+            },
+            ta: {
+
+                takeaway_title: "வெளியே எடுத்துச் செல்ல",
+                takeaway_desc: "இப்போது ஆர்டர் செய்யுங்கள், தயாராகும் போது உங்கள் உணவை எடுத்துச் செல்லுங்கள்.<br>நீங்கள் அவசரமாக இருக்கும்போது மிகவும் பொருத்தமானது!",
+                takeaway_button: "வெளியே எடுத்துச் செல்ல ஆர்டர்",
+                dinein_title: "உள்ளே உணவருந்த",
+                dinein_desc: "எங்கள் வசதியான உணவகப்பகுதியில் உங்கள் உணவை அனுபவிக்குங்கள்.",
+                dinein_button: "உள்ளே உணவருந்த ஆர்டர்",
+                footer_text: "தொடங்க திரையைத் தொடுங்கள் • 24/7 கிடைக்கிறது"
+            }
+
+        };
+
+        let currentLang = 'en';
+
+        // Language functionality
+        function toggleLanguageDropdown() {
+            const dropdown = document.getElementById('languageOptions');
+            dropdown.classList.toggle('show');
+        }
+                // Helper function to generate language codes from language names
+        function generateLanguageCode(languageName) {
+            const languageMap = {
+                'English': 'en',
+                'Spanish': 'es',
+                'Español': 'es',
+                'French': 'fr',
+                'Français': 'fr',
+                'German': 'de',
+                'Deutsch': 'de',
+                'Chinese': 'zh',
+                '中文': 'zh',
+                'Japanese': 'ja',
+                '日本語': 'ja',
+                'Arabic': 'ar',
+                'العربية': 'ar',
+                'Tamil': 'ta',
+                'தமிழ்': 'ta',
+                'Hindi': 'hi',
+                'हिन्दी': 'hi',
+                'Portuguese': 'pt',
+                'Português': 'pt',
+                'Russian': 'ru',
+                'Русский': 'ru',
+                'Korean': 'ko',
+                '한국어': 'ko'
+            };
+
+            // Return mapped code or create a simple code from the name
+            return languageMap[languageName] || languageName.toLowerCase().substring(0, 2);
+        }
+
+        // Helper function to get flag emoji for language codes
+        function getLanguageFlag(langCode) {
+            const flags = {
+                en: '🇺🇸',
+                es: '🇪🇸',
+                fr: '🇫🇷',
+                de: '🇩🇪',
+                zh: '🇨🇳',
+                ja: '🇯🇵',
+                ar: '🇸🇦',
+                ta: '🇱🇰', // Tamil - using Sri Lankan flag, could also use 🇮🇳
+                hi: '🇮🇳',
+                pt: '🇵🇹',
+                ru: '🇷🇺',
+                ko: '🇰🇷'
+            };
+
+            return flags[langCode] || '🌐'; // Default globe emoji for unknown languages
+        }
+
+        // Updated selectLanguage function to work with API data
+        function selectLanguage(langCode) {
+            currentLang = langCode;
+
+            // Get language name from stored data
+            const storedLanguages = JSON.parse(localStorage.getItem("serviceLanguages") || "[]");
+            const langData = storedLanguages.find(lang =>
+                generateLanguageCode(lang.language_name) === langCode
+            );
+            const languageName = langData ? langData.language_name : langCode.toUpperCase();
+            localStorage.setItem("selectedLang", languageName);
+            // Update current language display
+            const flag = getLanguageFlag(langCode);
+            const currentFlagEl = document.getElementById('currentFlag');
+            const currentLanguageEl = document.getElementById('currentLanguage');
+
+            if (currentFlagEl) currentFlagEl.textContent = flag;
+            if (currentLanguageEl) currentLanguageEl.textContent = languageName;
+
+            // Update active state
+            document.querySelectorAll('.language-option').forEach(option => {
+                option.classList.remove('active');
+            });
+
+            const selectedOption = document.querySelector(`[data-lang="${langCode}"]`);
+            if (selectedOption) {
+                selectedOption.classList.add('active');
+            }
+
+            // Close dropdown
+            const languageOptions = document.getElementById('languageOptions');
+            if (languageOptions) {
+                languageOptions.classList.remove('show');
+            }
+
+            // Update all text
+            updateLanguage();
+
+            // Apply RTL for Arabic and other RTL languages
+            const rtlLanguages = ['ar', 'he', 'fa', 'ur'];
+            if (rtlLanguages.includes(langCode)) {
+                document.documentElement.setAttribute('dir', 'rtl');
+            } else {
+                document.documentElement.setAttribute('dir', 'ltr');
+            }
+
+            // Store current selection
+            localStorage.setItem('currentLanguage', JSON.stringify({
+                code: langCode,
+                name: languageName
+            }));
+
+        }
+
+        // Function to load saved language preference on page load
+        function loadSavedLanguage() {
+            const saved = localStorage.getItem('currentLanguage');
+            if (saved) {
+                try {
+                    const { code, name } = JSON.parse(saved);
+                    selectLanguage(code, name);
+
+                } catch (err) {
+                    console.error("Failed to load saved language:", err);
+                }
+            }
+        }
+
+        function updateLanguage() {
+            const elements = document.querySelectorAll('[data-i18n]');
+            elements.forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                if (translations[currentLang] && translations[currentLang][key]) {
+                    element.innerHTML = translations[currentLang][key];
+
+                }
+            });
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function (event) {
+            const dropdown = document.querySelector('.language-dropdown');
+            if (!dropdown.contains(event.target)) {
+                document.getElementById('languageOptions').classList.remove('show');
+            }
+        });
+    </script>
+    <title>QuickBite Kiosk</title>
+
+    <!-- Landing Page Styles - Scoped to not interfere with existing CSS -->
+    <style>
+
+    </style>
+</head>
+<body>
+    <!-- Landing Page Overlay -->
+    <div id="landingOverlay">
+        <div class="landing-background-pattern"></div>
+        <!-- Language Selector -->
+        <div class="language-selector">
+            <div class="language-dropdown">
+                <button class="language-button" onclick="toggleLanguageDropdown()">
+                    <span class="language-flag" id="currentFlag">🇺🇸</span>
+                    <span id="currentLanguage">English</span>
+                    <span style="margin-left: 5px;">▼</span>
+                </button>
+                <div class="language-options" id="languageOptions">
+                    <!-- Dynamic language options will be populated here -->
+                </div>
+            </div>
+        </div>
+        <div class="landing-container main-landing">
+            <div class="landing-header">
+                <div class="landing-logo">
+                    <div class="landing-logo-icon">🍔</div>
+                    <div>
+                        <h3 class="landing-title" data-i18n="title">Solutions Details</h3>
+                        <p class="landing-subtitle" data-i18n="subtitle">Fast • Fresh • Delicious</p>
+                    </div>
+                </div>
+                <p class="landing-welcome" data-i18n="welcome">
+                    Welcome to SD Kiosk!<br>
+                    Touch an option below to start your order.
+                </p>
+            </div>
+
+            <div class="landing-options">
+                <div class="landing-option" data-type="T">
+                    <div class="landing-option-icon">🥡</div>
+                    <h2 class="landing-option-title" data-i18n="takeaway_title">Take Away</h2>
+                    <p class="landing-option-desc" data-i18n="takeaway_desc">
+                        Order now and collect your food when it's ready.<br>
+                        Perfect for when you're on the move!
+                    </p>
+                    <button class="landing-option-btn" data-i18n="takeaway_button">Order for Take Away</button>
+                </div>
+
+                <div class="landing-option" data-type="E">
+                    <div class="landing-option-icon">🍽️</div>
+                    <h2 class="landing-option-title" data-i18n="dinein_title">Dine In</h2>
+                    <p class="landing-option-desc" data-i18n="dinein_desc">
+                        Stay and enjoy your meal in our comfortable dining area.<br>
+                    </p>
+                    <button class="landing-option-btn" data-i18n="dinein_button">Order for Dine In</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="landing-footer">
+            <div class="landing-time" id="landingTime"></div>
+            <div data-i18n="footer_text">Touch screen to begin • Available 24/7</div>
+        </div>
+    </div>
+
+    <!-- Your existing kiosk interface -->
+    <div class="kiosk-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">🍔</div>
+                <h1>QuickBite Kiosk</h1>
+            </div>
+            <div class="header-info">
+                <div class="time" id="currentTime"></div>
+                <div>Touch to Order</div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- New Navigation Sidebar -->
+            <nav class="navigation-sidebar">
+                <h3 class="nav-title">Categories</h3>
+                <div class="category-tabs">
+                </div>
+            </nav>
+
+            <!-- Content Area Wrapper -->
+            <div class="content-area">
+                <!-- Menu Section -->
+                <section class="menu-section">
+                    <div class="menu-header">
+                        <h2 class="menu-title" id="menuTitle"></h2>
+                    </div>
+
+                    <div class="menu-grid" id="menuGrid">
+                        <!-- Menu items will be populated by JavaScript -->
+                    </div>
+
+                    <div id="addonContainer" class="mt-4 p-4 border rounded bg-gray-50"></div>
+                </section>
+
+                @* <!-- Cart Section -->
+                <section class="cart-section">
+                    <div class="cart-header">
+                        <div class="cart-icon">🛒</div>
+                        <h2>Your Order</h2>
+                    </div>
+
+                    <div class="cart-items" id="cartItems">
+                        <div class="empty-cart">
+                            Your cart is empty.<br>
+                            Select items from the menu to get started!
+                        </div>
+                    </div>
+
+                    <div class="cart-summary">
+                        <div class="cart-total">
+                            <div class="cart-total-row subtotal">
+                                <span class="cart-total-label">Subtotal:</span>
+                                <span class="cart-total-amount" id="cartTotal"></span>
+                            </div>
+                            <div class="cart-total-row">
+                                <span class="cart-total-label">
+                                    Service Charge (<span id="service-charge-rate"></span>%):
+                                </span>
+                                <span class="cart-total-amount" id="service-charge"></span>
+                            </div>
+                            <div class="cart-total-row">
+                                <span class="cart-total-label">
+                                    GST (<span id="gst-rate"></span>%):
+                                </span>
+                                <span class="cart-total-amount" id="gst"></span>
+                            </div>
+                            <div class="cart-total-row final-total">
+                                <span class="cart-total-label">Total:</span>
+                                <span class="cart-total-amount" id="total"></span>
+                            </div>
+                        </div>
+
+                        <button class="checkout-btn" onclick="placeOrder()" id="checkout-btn">
+                            PLACE ORDER
+                        </button>
+                    </div>
+
+                </section> *@
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart Modal Overlay -->
+    <div class="cart-modal-overlay" id="cartModalOverlay" onclick="closeCart()"></div>
+
+    <!-- Cart Modal -->
+    <div class="cart-modal" id="cartModal">
+        <div class="cart-header">
+            <div class="cart-icon">🛒</div>
+            <h2>Your Order</h2>
+            <button class="close-cart" onclick="closeCart()">×</button>
+        </div>
+
+        <div class="cart-content">
+            <div class="cart-items" id="cartItems">
+                <div class="empty-cart">
+                    Your cart is empty.<br>
+                    Select items from the menu to get started!
+                </div>
+            </div>
+
+            <div class="cart-summary">
+                <div class="cart-total">
+                    <div class="cart-total-row subtotal">
+                        <span class="cart-total-label">Subtotal:</span>
+                        <span class="cart-total-amount" id="cartTotal"></span>
+                    </div>
+                    <div class="cart-total-row">
+                        <span class="cart-total-label">
+                            Service Charge (<span id="service-charge-rate"></span>%):
+                        </span>
+                        <span class="cart-total-amount" id="service-charge"></span>
+                    </div>
+                    <div class="cart-total-row">
+                        <span class="cart-total-label">
+                            GST (<span id="gst-rate"></span>%):
+                        </span>
+                        <span class="cart-total-amount" id="gst"></span>
+                    </div>
+                    <div class="cart-total-row final-total">
+                        <span class="cart-total-label">Total:</span>
+                        <span class="cart-total-amount" id="total"></span>
+                    </div>
+                </div>
+
+                <button class="checkout-btn" id="checkout-btn">
+                    PLACE ORDER
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Success Modal -->
+    <div class="modal" id="successModal">
+        <div class="modal-content">
+            <div class="success-icon">✓</div>
+            <h2>Order Placed Successfully!</h2>
+            <p>Your order has been received and is being prepared.</p>
+            <div class="order-number" id="orderNumber">#001</div>
+            <p>Please wait for your order to be called.</p>
+            <button class="close-btn" onclick="closeModal()">Start New Order</button>
+        </div>
+    </div>
+    <div id="addonModal" class="modal" style="display: none;" onclick="if(event.target === this) this.style.display='none'">
+        <div class="modal-content" id="addonModalContent"></div>
+    </div>
+
+    <!-- Enhanced Bottom Navigation with Cart -->
+    <nav class="bottom-nav">
+        <div class="nav-item" onclick="toggleCart()">
+            <div class="nav-icon">🛒</div>
+            <div class="nav-label">Cart</div>
+            <div class="cart-badge" id="cartBadge">0</div>
+            <div class="nav-subtotal" id="navSubtotal" style="display: none;">$0.00</div>
+        </div>
+    </nav>
+
+    <script type="module">
+        // Global variables for cart functionality
+        let cart = [];
+        let orderCounter = 1;
+
+        // Landing page functionality
+        function updateLandingTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+            const landingTimeEl = document.getElementById('landingTime');
+            if (landingTimeEl) {
+                landingTimeEl.textContent = timeString;
+            }
+        }
+
+        // Initialize landing page
+        updateLandingTime();
+        setInterval(updateLandingTime, 1000);
+
+        function updateTime() {
+            const now = new Date();
+            const currentTimeEl = document.getElementById('currentTime');
+            if (currentTimeEl) {
+                currentTimeEl.textContent = now.toLocaleTimeString();
+            }
+        }
+
+        // Cart Modal functionality
+        function toggleCart() {
+            const overlay = document.getElementById('cartModalOverlay');
+            const modal = document.getElementById('cartModal');
+
+            overlay.classList.toggle('active');
+            modal.classList.toggle('active');
+
+            if (modal.classList.contains('active')) {
+                document.body.style.overflow = 'hidden';
+                // updateCartModalDisplay();
+            } else {
+                document.body.style.overflow = 'auto';
+            }
+        }
+
+        function closeCart() {
+            const overlay = document.getElementById('cartModalOverlay');
+            const modal = document.getElementById('cartModal');
+
+            overlay.classList.remove('active');
+            modal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        function updateCartBadge() {
+            const cartBadge = document.getElementById('cartBadge');
+            const navSubtotal = document.getElementById('navSubtotal');
+            const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            if (cartBadge) {
+                cartBadge.textContent = itemCount;
+            }
+
+            if (navSubtotal) {
+                if (subtotal > 0) {
+                    navSubtotal.textContent = `${subtotal.toFixed(2)}`;
+                    navSubtotal.style.display = 'block';
+                } else {
+                    navSubtotal.style.display = 'none';
+                }
+            }
+
+            // Animate badge
+            if (itemCount > 0 && cartBadge) {
+                cartBadge.style.animation = 'none';
+                setTimeout(() => {
+                    cartBadge.style.animation = 'pulse 0.3s ease';
+                }, 10);
+            }
+        }
+
+
+        function closeModal() {
+            const successModal = document.getElementById('successModal');
+            if (successModal) {
+                successModal.style.display = 'none';
+            }
+        }
+
+        // Make functions globally available
+        window.toggleCart = toggleCart;
+        window.closeCart = closeCart;
+        window.closeModal = closeModal;
+
+        // Initialize
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedLang = localStorage.getItem("selectedLang") || 'en';
+            selectLanguage(savedLang);
+            updateTime();
+            setInterval(updateTime, 1000);
+            updateCartBadge();
+        });
+
+        // Close cart when clicking outside or pressing Escape
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeCart();
+            }
+        });
+
+
+
+    </script>
+</body>
+</html>

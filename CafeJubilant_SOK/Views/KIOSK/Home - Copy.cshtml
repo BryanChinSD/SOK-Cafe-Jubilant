@@ -1,0 +1,2929 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <link rel="icon" type="image/x-icon" href="/img/Logo.png" sizes="106x104">
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.8/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isBetween.js"></script>
+    <link rel="preload" href="/img/Logo.png" as="image">
+    @*     <script type="module" src="/utils/eber.js" asp-append-version="true"></script>
+ *@
+    <script>
+
+
+        (function() {
+            // const RESTAURANT_CONFIG = {
+            //     color: '#D3281B',
+            //     logo: "/img/LIHO-logo.jpg",
+            //     baseImageUrl: "/api/GetImageProxy?imageUrl="
+            // };
+
+            const RESTAURANT_CONFIG = {
+                color: '#f5b419',
+                logo: "/img/Logo.png",
+                baseImageUrl: "/API/GetImageProxy?imageUrl="
+            };
+
+            const root = document.documentElement;
+            root.style.setProperty('--primary', RESTAURANT_CONFIG.color);
+            root.style.setProperty('--primary-hover', adjustColor(RESTAURANT_CONFIG.color, -10));
+            root.style.setProperty('--primary-light', adjustColor(RESTAURANT_CONFIG.color, 40));
+
+            function applyLogo() {
+                ['langing-kiosk-logo', 'kiosk-logo'].forEach(id => {
+                    const img = document.getElementById(id);
+                    if (img) {
+                        img.src = RESTAURANT_CONFIG.logo;
+                        img.alt = 'Kiosk Logo';
+                    }
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', applyLogo);
+            } else {
+                applyLogo();
+            }
+
+            function adjustColor(hex, percent) {
+                const num = parseInt(hex.replace('#', ''), 16);
+                const amt = Math.round(2.55 * percent);
+                const R = Math.min(255, Math.max(0, (num >> 16) + amt));
+                const G = Math.min(255, Math.max(0, (num >> 8 & 0x00FF) + amt));
+                const B = Math.min(255, Math.max(0, (num & 0x0000FF) + amt));
+                return `#${(0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1)}`;
+            }
+
+            window.RESTAURANT_CONFIG = RESTAURANT_CONFIG;
+        })();
+    </script>
+
+    <script src="/js/session.js" asp-append-version="true"></script>
+    <script type="module" src="/js/kiosk-cache-persist.js" asp-append-version="true"></script>
+    <script type="module" src="/js/Home.js" asp-append-version="true"></script>
+    <script type="module" src="/js/sokWebSocket.js" asp-append-version="true"></script>
+    <script type="module" src="/js/Payment.js" asp-append-version="true"></script>
+    <link rel="stylesheet" type="text/css" href="/css/sok.css" asp-append-version="true">
+    <link rel="stylesheet" type="text/css" href="/css/Cart.css" asp-append-version="true">
+    <link rel="stylesheet" type="text/css" href="/css/Voucher.css" asp-append-version="true">
+
+    <script type="module">
+        const sessionId = await window.SessionUtils.createDeviceFingerprint();
+        const token = window.SessionUtils.createRandomSessionToken();
+        localStorage.removeItem("selectedLang");
+        localStorage.removeItem("currentLanguage");
+    </script>
+
+
+    <title>Kiosk</title>
+
+    <script>
+         const translations = {
+             en: {
+                 takeaway_title: "Take Away",
+                 takeaway_desc: "Order now and collect your food when it's ready.",
+                 takeaway_button: "Order for Take Away",
+                 dinein_title: "Dine In",
+                 dinein_desc: "Stay and enjoy your meal in our comfortable dining area.",
+                 dinein_button: "Order for Dine In",
+                 footer_text: "Touch screen to begin"
+             },
+             es: {
+                 takeaway_title: "Para Llevar",
+                 takeaway_desc: "Ordena ahora y recoge tu comida when esté lista.<br>¡Perfecto para cuando estés en movimiento!",
+                 takeaway_button: "Ordenar Para Llevar",
+                 dinein_title: "Comer Aquí",
+                 dinein_desc: "Quédate y disfruta tu comida en nuestra cómoda área de comedor.",
+                 dinein_button: "Ordenar Para Comer Aquí",
+                 footer_text: "Toca la pantalla para comenzar"
+             },
+             fr: {
+                 takeaway_title: "À Emporter",
+                 takeaway_desc: "Commandez maintenant et récupérez votre nourriture quand elle sera prête.<br>Parfait quand vous êtes en déplacement !",
+                 takeaway_button: "Commander À Emporter",
+                 dinein_title: "Sur Place",
+                 dinein_desc: "Restez et savourez votre repas dans notre espace de restauration confortable.",
+                 dinein_button: "Commander Sur Place",
+                 footer_text: "Touchez l'écran pour commencer"
+             },
+             de: {
+                 takeaway_title: "Zum Mitnehmen",
+                 takeaway_desc: "Bestellen Sie jetzt und holen Sie Ihr Essen ab, wenn es fertig ist.<br>Perfekt für unterwegs!",
+                 takeaway_button: "Zum Mitnehmen bestellen",
+                 dinein_title: "Vor Ort essen",
+                 dinein_desc: "Bleiben Sie und genießen Sie Ihr Essen in unserem gemütlichen Essbereich.",
+                 dinein_button: "Vor Ort bestellen",
+                 footer_text: "Bildschirm berühren zum Starten"
+             },
+             zh: {
+                 takeaway_title: "外带",
+                 takeaway_desc: "现在订购,准备好后来取餐。<br>非常适合忙碌的您!",
+                 takeaway_button: "外带订购",
+                 dinein_title: "堂食",
+                 dinein_desc: "留下来在我们舒适的用餐区享受您的美食。",
+                 dinein_button: "堂食订购",
+                 footer_text: "触摸屏幕开始"
+             },
+             ja: {
+                 welcome: " キオスクへようこそ!<br>下のオプションをタッチして注文を開始してください。",
+                 takeaway_title: "テイクアウト",
+                 takeaway_desc: "今すぐ注文して、準備ができたら受け取りに来てください。<br>移動中に最適!",
+                 takeaway_button: "テイクアウト注文",
+                 dinein_title: "店内飲食",
+                 dinein_desc: "快適なダイニングエリアで食事をお楽しみください。",
+                 dinein_button: "店内飲食注文",
+                 footer_text: "画面をタッチして開始"
+             },
+             ta: {
+                 takeaway_title: "வெளியே எடுத்துச் செல்ல",
+                 takeaway_desc: "இப்போது ஆர்டர் செய்யுங்கள், தயாராகும் போது உங்கள் உணவை எடுத்துச் செல்லுங்கள்.<br>நீங்கள் அவசரமாக இருக்கும்போது மிகவும் பொருத்தமானது!",
+                 takeaway_button: "வெளியே எடுத்துச் செல்ல ஆர்டர்",
+                 dinein_title: "உள்ளே உணவருந்த",
+                 dinein_desc: "எங்கள் வசதியான உணவகப்பகுதியில் உங்கள் உணவை அனுபவிக்குங்கள்.",
+                 dinein_button: "உள்ளே உணவருந்த ஆர்டர்",
+                 footer_text: "தொடங்க திரையைத் தொடுங்கள்"
+             }
+         };
+
+         let currentLang = 'en';
+
+         function toggleLanguageDropdown() {
+             const dropdown = document.getElementById('languageOptions');
+             dropdown.classList.toggle('show');
+         }
+
+         function generateLanguageCode(languageName) {
+             const languageMap = {
+                 'English': 'en',
+                 'Spanish': 'es',
+                 'Español': 'es',
+                 'French': 'fr',
+                 'Français': 'fr',
+                 'German': 'de',
+                 'Deutsch': 'de',
+                 'Chinese': 'zh',
+                 '中文': 'zh',
+                 'Japanese': 'ja',
+                 '日本語': 'ja',
+                 'Arabic': 'ar',
+                 'العربية': 'ar',
+                 'Tamil': 'ta',
+                 'தமிழ்': 'ta',
+                 'Hindi': 'hi',
+                 'हिन्दी': 'hi',
+                 'Portuguese': 'pt',
+                 'Português': 'pt',
+                 'Russian': 'ru',
+                 'Русский': 'ru',
+                 'Korean': 'ko',
+                 '한국어': 'ko'
+             };
+
+             return languageMap[languageName] || languageName.toLowerCase().substring(0, 2);
+         }
+
+         function getLanguageFlag(langCode) {
+             const flags = {
+                 en: '🇺🇸',
+                 es: '🇪🇸',
+                 fr: '🇫🇷',
+                 de: '🇩🇪',
+                 zh: '🇨🇳',
+                 ja: '🇯🇵',
+                 ar: '🇸🇦',
+                 ta: '🇱🇰',
+                 hi: '🇮🇳',
+                 pt: '🇵🇹',
+                 ru: '🇷🇺',
+                 ko: '🇰🇷'
+             };
+
+             return flags[langCode] || '🌐';
+         }
+
+         function selectLanguage(langCode) {
+             currentLang = langCode;
+
+             const storedLanguages = JSON.parse(localStorage.getItem("serviceLanguages") || "[]");
+             const langData = storedLanguages.find(lang =>
+                 generateLanguageCode(lang.language_name) === langCode
+             );
+             const languageName = langData ? langData.language_name : langCode.toUpperCase();
+             localStorage.setItem("selectedLang", languageName);
+
+             const flag = getLanguageFlag(langCode);
+             const currentFlagEl = document.getElementById('currentFlag');
+             const currentLanguageEl = document.getElementById('currentLanguage');
+
+             if (currentFlagEl) currentFlagEl.textContent = flag;
+             if (currentLanguageEl) currentLanguageEl.textContent = languageName;
+
+             document.querySelectorAll('.language-option').forEach(option => {
+                 option.classList.remove('active');
+             });
+
+             const selectedOption = document.querySelector(`[data-lang="${langCode}"]`);
+             if (selectedOption) {
+                 selectedOption.classList.add('active');
+             }
+
+             const languageOptions = document.getElementById('languageOptions');
+             if (languageOptions) {
+                 languageOptions.classList.remove('show');
+             }
+
+             updateLanguage();
+
+             const rtlLanguages = ['ar', 'he', 'fa', 'ur'];
+             if (rtlLanguages.includes(langCode)) {
+                 document.documentElement.setAttribute('dir', 'rtl');
+             } else {
+                 document.documentElement.setAttribute('dir', 'ltr');
+             }
+
+             localStorage.setItem('currentLanguage', JSON.stringify({
+                 code: langCode,
+                 name: languageName
+             }));
+         }
+
+         function loadSavedLanguage() {
+             const saved = localStorage.getItem('currentLanguage');
+             if (saved) {
+                 try {
+                     const { code, name } = JSON.parse(saved);
+                     selectLanguage(code, name);
+                 } catch (err) {
+                     console.error("Failed to load saved language:", err);
+                 }
+             }
+         }
+
+         function updateLanguage() {
+             const elements = document.querySelectorAll('[data-i18n]');
+             elements.forEach(element => {
+                 const key = element.getAttribute('data-i18n');
+                 if (translations[currentLang] && translations[currentLang][key]) {
+                     element.innerHTML = translations[currentLang][key];
+                 }
+             });
+         }
+
+         document.addEventListener('click', function (event) {
+             const dropdown = document.querySelector('.language-dropdown');
+             if (!dropdown.contains(event.target)) {
+                 document.getElementById('languageOptions').classList.remove('show');
+             }
+         });
+
+         // ============================================
+         // PROMOTION MODAL FUNCTIONS
+         // ============================================
+
+        function showPromotionModal() {
+             const modal = document.getElementById('promotionModalOverlay');
+             if (!modal) return;
+
+             modal.classList.add('active');
+             document.body.style.overflow = 'hidden';
+
+             // Optional: Start countdown timer if enabled
+             startPromotionTimer();
+
+             console.log('🎉 Promotion modal opened');
+         }
+
+         function closePromotionModal() {
+             const modal = document.getElementById('promotionModalOverlay');
+             if (!modal) return;
+
+             modal.classList.remove('active');
+             document.body.style.overflow = 'auto';
+
+
+
+             console.log('✅ Promotion modal closed');
+         }
+
+         function proceedFromPromotion() {
+             closePromotionModal();
+             // Optionally trigger member login or any other action
+             // showLoginScreen();
+         }
+
+         // Optional: Countdown timer for limited offers
+         function startPromotionTimer() {
+             const timerElement = document.getElementById('promotionTimerValue');
+             if (!timerElement) return;
+
+             // Set end time (example: 2 hours from now)
+             const endTime = new Date().getTime() + (2 * 60 * 60 * 1000);
+
+             const updateTimer = () => {
+                 const now = new Date().getTime();
+                 const timeLeft = endTime - now;
+
+                 if (timeLeft <= 0) {
+                     timerElement.textContent = '00:00:00';
+                     clearInterval(timerInterval);
+                     return;
+                 }
+
+                 const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                 const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                 const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+                 timerElement.textContent =
+                     `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+             };
+
+             updateTimer();
+             const timerInterval = setInterval(updateTimer, 1000);
+         }
+
+         // Auto-show promotion on page load
+         function initPromotionModal() {
+
+             // showPromotionModal();
+         }
+
+         // Export functions globally
+         window.showPromotionModal = showPromotionModal;
+         window.closePromotionModal = closePromotionModal;
+         window.proceedFromPromotion = proceedFromPromotion;
+
+         // Initialize on DOM ready
+         document.addEventListener('DOMContentLoaded', () => {
+             initPromotionModal();
+         });
+    </script>
+</head>
+<body>
+
+    <!-- ============================================ -->
+    <!-- PROMOTION MODAL (Shows First on Landing) -->
+    <!-- ============================================ -->
+    @* <div id="promotionModalOverlay" class="promotion-modal-overlay">
+        <div class="promotion-modal">
+            <!-- Close Button -->
+            <button class="promotion-close-btn" onclick="closePromotionModal()" aria-label="Close">
+                ×
+            </button>
+
+            <!-- Promotion Header with Image -->
+            <div class="promotion-header">
+                <img src="/img/LiHO_Snow Mountain.jpg"
+                     alt="Special Promotion"
+                     class="promotion-image"
+                     onerror="this.style.display='none'">
+            </div>
+
+        </div>
+    </div> *@
+
+    <!-- Landing Page Overlay -->
+    <div id="landingOverlay">
+        <div class="landing-background-pattern"></div>
+
+        <!-- Language Selector -->
+        <div class="language-selector">
+            <div class="language-dropdown">
+                <button class="language-button" onclick="toggleLanguageDropdown()">
+                    <span class="language-flag" id="currentFlag">🇺🇸</span>
+                    <span id="currentLanguage">English</span>
+                    <span style="margin-left: 5px;">▼</span>
+                </button>
+                <div class="language-options" id="languageOptions">
+                    <!-- Dynamic language options will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="landing-container main-landing">
+            <div class="landing-header">
+                <div class="landing-logo">
+                    <div class="landing-logo-icon">
+                        <img id="kiosk-logo" alt="Logo" class="logo-img" />
+                    </div>
+                </div>
+
+                <p class="landing-welcome" data-i18n="welcome">
+                    Touch an option below to start your order.
+                </p>
+            </div>
+
+            <!-- MEMBER/GUEST OPTIONS -->
+            <div id="memberGuestSelection" class="landing-options">
+               @*  <!-- Member Option -->
+                <div class="landing-option member-option-card" onclick="showLoginScreen()">
+                    <div class="landing-option-icon">👤</div>
+                    <h2 class="landing-option-title">Member</h2>
+                    <p class="landing-option-desc">
+                        Sign in to enjoy exclusive benefits, rewards, and personalized experiences
+                    </p>
+                    <button class="landing-option-btn">Sign In as Member</button>
+                </div>
+ *@
+                <!-- Guest Option -->
+                <div class="landing-option guest-option-card" onclick="proceedAsGuest()">
+                    <div class="landing-option-icon">🎫</div>
+                    <h2 class="landing-option-title">Guest</h2>
+                    <p class="landing-option-desc">
+                        Continue as a guest without signing in. You can still enjoy our full menu
+                    </p>
+                    <button class="landing-option-btn">Continue as Guest</button>
+                </div>
+            </div>
+
+            <!-- ORDER TYPE SELECTION -->
+            <div id="orderTypeSelection" class="landing-options" style="display: none;">
+                <div class="landing-option" data-type="T" data-handler-attached="true">
+                    <div class="landing-option-icon">🥡</div>
+                    <h2 class="landing-option-title" data-i18n="takeaway_title">Take Away</h2>
+                    <p class="landing-option-desc" data-i18n="takeaway_desc">Order now and collect your food when it's ready.</p>
+                    <button class="landing-option-btn" data-i18n="takeaway_button">Order for Take Away</button>
+                </div>
+
+                <div class="landing-option" data-type="E" data-handler-attached="true">
+                    <div class="landing-option-icon">🍽️</div>
+                    <h2 class="landing-option-title" data-i18n="dinein_title">Dine In</h2>
+                    <p class="landing-option-desc" data-i18n="dinein_desc">Stay and enjoy your meal in our comfortable dining area.</p>
+                    <button class="landing-option-btn" data-i18n="dinein_button">Order for Dine In</button>
+                </div>
+            </div>
+
+            <!-- Login Modal -->
+            <div id="loginModal" class="login-modal-overlay" style="display: none;">
+                <div class="login-modal">
+                    <button class="back-arrow" onclick="closeLoginModal()" type="button" aria-label="Go back">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 12H5M12 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+
+                    <div class="login-header">
+                        <h2>Member Login</h2>
+                        <p>Enter your phone number to continue</p>
+                    </div>
+
+                    <div class="success-message" id="loginSuccessMessage">
+                        Login successful! Redirecting...
+                    </div>
+
+                    <div class="error-message" id="loginErrorMessage">
+                        Invalid phone number. Please try again.
+                    </div>
+
+                    <form class="login-form" onsubmit="return handleMemberLogin(event)">
+                        <div class="form-group">
+                            <label class="form-label">Phone Number</label>
+                            <div class="phone-input-wrapper">
+                                <div class="country-code">
+                                    🇸🇬 +65
+                                </div>
+                                <input type="tel"
+                                       class="phone-input"
+                                       id="phoneNumber"
+                                       placeholder="8123 4567"
+                                       pattern="[0-9]{8}"
+                                       maxlength="8"
+                                       required
+                                       autocomplete="tel-national">
+                            </div>
+                            <small style="color: #6b7280; font-size: 0.85rem; margin-top: 8px; display: block;">
+                                Enter 8-digit Singapore mobile number
+                            </small>
+                        </div>
+
+                        <button type="submit" class="login-btn">
+                            Login
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="landing-footer">
+            <div class="landing-time" id="landingTime"></div>
+            <div data-i18n="footer_text">Touch screen to begin</div>
+        </div>
+    </div>
+
+    <!-- Your existing kiosk interface (keeping the rest of your HTML) -->
+    <div class="kiosk-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="landing-logo1">
+                <div class="landing-logo-icon1">
+                    <img id="langing-kiosk-logo" alt="Logo" class="logo-img" />
+                    @*                     <img id="langing-kiosk-logo" src="/img/Harry's-Logo.jpg" alt="Logo" class="logo-img" />
+ *@                </div>
+            </div>
+            <div class="header-info">
+                <div class="time" id="currentTime"></div>
+                <button class="start-over-btn" onclick="startNewOrder()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                    Start Over
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- New Navigation Sidebar -->
+            <nav class="navigation-sidebar">
+                <h3 class="nav-title">Categories</h3>
+
+                <!-- NEW wrapper to control scroll -->
+                <div class="category-tabs-wrapper">
+                    <div class="category-tabs"></div>
+                </div>
+            </nav>
+
+
+            <!-- Content Area Wrapper -->
+            <div class="content-area">
+                <!-- Menu Section -->
+                <section class="menu-section">
+                    <div class="menu-header">
+                        <h2 class="menu-title" id="menuTitle"></h2>
+                    </div>
+
+                    <div class="menu-grid" id="menuGrid">
+                        <!-- Menu items will be populated by JavaScript -->
+                    </div>
+
+                    <div id="addonContainer" class="mt-4 p-4 border rounded bg-gray-50"></div>
+                </section>
+
+                @* <!-- Cart Section -->
+                <section class="cart-section">
+                    <div class="cart-header">
+                        <div class="cart-icon">🛒</div>
+                        <h2>Your Order</h2>
+                    </div>
+
+                    <div class="cart-items" id="cartItems">
+                        <div class="empty-cart">
+                            Your cart is empty.<br>
+                            Select items from the menu to get started!
+                        </div>
+                    </div>
+
+                    <div class="cart-summary">
+                        <div class="cart-total">
+                            <div class="cart-total-row subtotal">
+                                <span class="cart-total-label">Subtotal:</span>
+                                <span class="cart-total-amount" id="cartTotal"></span>
+                            </div>
+                            <div class="cart-total-row">
+                                <span class="cart-total-label">
+                                    Service Charge (<span id="service-charge-rate"></span>%):
+                                </span>
+                                <span class="cart-total-amount" id="service-charge"></span>
+                            </div>
+                            <div class="cart-total-row">
+                                <span class="cart-total-label">
+                                    GST (<span id="gst-rate"></span>%):
+                                </span>
+                                <span class="cart-total-amount" id="gst"></span>
+                            </div>
+                            <div class="cart-total-row final-total">
+                                <span class="cart-total-label">Total:</span>
+                                <span class="cart-total-amount" id="total"></span>
+                            </div>
+                        </div>
+
+                        <button class="checkout-btn" onclick="placeOrder()" id="checkout-btn">
+                            PLACE ORDER
+                        </button>
+                    </div>
+
+                </section> *@
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart Modal Overlay -->
+    <div class="cart-modal-overlay" id="cartModalOverlay"></div>
+
+    <!-- Cart Modal -->
+    <div class="cart-modal" id="cartModal">
+        <div class="cart-header">
+            <div class="cart-icon">🛒</div>
+            <h2>Your Order</h2>
+            <button class="close-cart" onclick="closeCartModal()">×</button>
+        </div>
+
+        <div class="voucher-banner" id="voucherBanner" style="display: none;">
+            <div class="voucher-banner-content">
+                <div class="voucher-icon">🎟️</div>
+                <div class="voucher-text">
+                    <strong>You have <span id="availableVoucherCount"> 0 </span> vouchers!</strong>
+                    <p>Apply to get discount</p>
+                </div>
+            </div>
+            <button class="voucher-banner-btn" onclick="openVouchersModal()">
+                View Vouchers
+            </button>
+        </div>
+
+        <div class="cart-content">
+            <div class="cart-items" id="cartItems">
+                <div class="empty-cart">
+                    Your cart is empty.<br>
+                    Select items from the menu to get started!
+                </div>
+            </div>
+            <div class="cart-summary">
+                <div class="cart-total">
+                    <div class="cart-total-row subtotal">
+                        <span class="cart-total-label">Subtotal:</span>
+                        <span class="cart-total-amount" id="cartTotal"></span>
+                    </div>
+
+                    <!-- ✅ NEW: DISCOUNT AMOUNT ROW -->
+                    <div class="cart-total-row discount-amount-row" id="discount-amount-row" style="display: none;">
+                        <span class="cart-total-label">Discount Amount:</span>
+                        <span class="cart-total-amount discount-amount" id="discount-amount">-$0.00</span>
+                    </div>
+
+                    <!-- ✅ VOUCHER DISCOUNT ROW -->
+                    <div class="cart-total-row voucher-discount-row" id="voucher-discount-row" style="display: none;">
+                        <div class="voucher-discount-info">
+                            <span class="cart-total-label voucher-label" id="voucher-discount-label">
+                                <span class="voucher-icon">🎟️</span>
+                                <span class="voucher-name">Voucher</span>
+                            </span>
+                        </div>
+                        <button class="remove-voucher-btn" id="remove-voucher-btn" style="display: none;" title="Remove voucher" aria-label="Remove voucher">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            Remove
+                        </button>
+                        <span class="cart-total-amount voucher-amount" id="voucher-discount-amount">-$0.00</span>
+                    </div>
+
+                    <!-- ✅ ITEM DISCOUNTS ROW (for non-voucher discounts) -->
+                    <div class="cart-total-row discount-row" id="total-discount-row" style="display: none;">
+                        <span class="cart-total-label">Item Discounts:</span>
+                        <span class="cart-total-amount discount-amount" id="total-discount-amount">-$0.00</span>
+                    </div>
+
+                    <div class="cart-total-row">
+                        <span class="cart-total-label">
+                            Service Charge (<span id="service-charge-rate"></span>%):
+                        </span>
+                        <span class="cart-total-amount" id="service-charge"></span>
+                    </div>
+
+                    <div class="cart-total-row">
+                        <span class="cart-total-label">
+                            GST (<span id="gst-rate"></span>%):
+                        </span>
+                        <span class="cart-total-amount" id="gst"></span>
+                    </div>
+
+                    <div class="cart-total-row final-total">
+                        <span class="cart-total-label">Total:</span>
+                        <span class="cart-total-amount" id="total"></span>
+                    </div>
+                </div>
+
+                <div class="checkout-actions">
+                    <button class="empty-cart-btn" id="empty-cart-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                        Empty Cart
+                    </button>
+                    <button class="checkout-btn" id="checkout-btn">
+                        PLACE ORDER
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voucher Modal Overlay -->
+    <div id="vouchersModalOverlay" class="fullscreen-vouchers-modal">
+        <div class="fullscreen-vouchers-content">
+            <!-- Modal Header -->
+            <div class="vouchers-modal-header">
+                <h2>Your Vouchers</h2>
+
+                <!-- Filter Buttons - REORDERED -->
+                <div class="voucher-filters">
+                    <button class="voucher-filter-btn"
+                            data-filter="catalog"
+                            onclick="window.filterVouchers('catalog')">
+                        Redeemable (<span id="filterCatalogCount">0</span>)
+                    </button>
+
+                    <button class="voucher-filter-btn"
+                            data-filter="issued"
+                            onclick="window.filterVouchers('issued')">
+                        Issued (<span id="filterIssuedCount">0</span>)
+                    </button>
+
+                    <button class="voucher-filter-btn active"
+                            data-filter="all"
+                            onclick="window.filterVouchers('all')">
+                        All (<span id="filterAllCount">0</span>)
+                    </button>
+                </div>
+
+                <!-- Close Button -->
+                <button class="close-vouchers-btn"
+                        onclick="window.closeVouchersModal()"
+                        aria-label="Close">
+                    ×
+                </button>
+            </div>
+
+            <!-- Vouchers Grid - Scrollable Content -->
+            <div id="vouchersModalContent" class="fullscreen-vouchers-grid">
+                <!-- Vouchers will be rendered here by JavaScript -->
+            </div>
+        </div>
+    </div>
+    <!-- Error Modal -->
+    <div class="error-modal-overlay" id="errorModalOverlay">
+        <div class="error-modal">
+            <div class="error-modal-icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h3 class="error-modal-title" id="errorModalTitle">Error Loading Data</h3>
+            <p class="error-modal-message" id="errorModalMessage"></p>
+            <div class="error-modal-actions">
+                <button class="error-modal-btn retry-btn" id="retryBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                    Retry
+                </button>
+                <button class="error-modal-btn close-btn" id="errorCloseBtn">Close</button>
+            </div>
+            <div class="error-modal-details" id="errorDetails" style="display: none;">
+                <div class="error-details-toggle" onclick="this.parentElement.classList.toggle('expanded')">
+                    <span>Technical Details</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </div>
+                <pre class="error-details-content" id="errorDetailsContent"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty Cart Confirmation Modal -->
+    <div class="empty-cart-modal-overlay" id="emptyCartModalOverlay">
+        <div class="empty-cart-modal">
+            <div class="empty-cart-modal-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+            </div>
+            <h3 class="empty-cart-modal-title">Empty Your Cart?</h3>
+            <p class="empty-cart-modal-message">Are you sure you want to remove all items from your cart? This action cannot be undone.</p>
+            <div class="empty-cart-modal-actions">
+                <button class="empty-cart-modal-btn cancel-btn" id="cancelEmptyCart">Cancel</button>
+                <button class="empty-cart-modal-btn confirm-btn" id="confirmEmptyCart">Yes, Empty Cart</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal" id="successModal" onclick="void(0)">
+        <div class="modal-content" style="max-width: 600px; max-height: 90vh; display: flex; flex-direction: column; padding:20px;">
+            <!-- Fixed Header Section -->
+            <div style="flex-shrink: 0;">
+                <div class="success-icon">✓</div>
+                <h2>Payment Success</h2>
+                <div class="order-number" id="orderNumber">#001</div>
+            </div>
+
+            <!-- Scrollable Order Details Container -->
+            <div id="orderDetailsContainer" style="flex: 1; overflow-y: auto; padding: 0 20px; margin: 10px 0;"></div>
+
+            <!-- Fixed Footer Section -->
+            <div style="flex-shrink: 0; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                <button class="close-btn" onclick="startOverFromPOS()">Start New Order</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="addonModal" class="modal">
+        <div class="modal-content" id="addonModalContent"></div>
+    </div>
+
+    <!-- Payment Method Modal -->
+    <div class="payment-modal-overlay" id="paymentMethodModal">
+        <div class="payment-modal-container">
+            <button class="payment-modal-close" onclick="closePaymentModal()">×</button>
+
+            <div class="payment-modal-header">
+                <h2 class="payment-modal-title">Select Payment</h2>
+                <p class="payment-modal-subtitle">Choose your preferred payment method</p>
+            </div>
+
+            <div class="payment-amount-display">
+                <div class="payment-amount-label">Total Amount</div>
+                <div class="payment-amount-value" id="paymentAmountDisplay"></div>
+            </div>
+
+            <div class="payment-methods-section">
+                <!-- ✅ JS renders all cards here from PAYMENT_CONFIG -->
+                <div id="paymentMethodsContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Processing Modal -->
+    <div class="payment-processing-overlay" id="paymentProcessingModal">
+        <div class="payment-processing-content">
+            <div class="payment-spinner">
+                <div class="payment-spinner-circle"></div>
+                <div class="payment-spinner-icon">💳</div>
+            </div>
+            <h3 class="payment-processing-title">Processing Payment</h3>
+            <p class="payment-processing-message">Please present your card to the terminal</p>
+            <p class="payment-processing-hint">Please wait, do not refresh the page...</p>
+        </div>
+    </div>
+    <nav class="bottom-nav">
+        <div class="nav-item" onclick="toggleCart()">
+            <div style="position: relative; display: inline-block;">
+                <div class="nav-icon">🛒</div>
+                <div class="cart-badge" id="cartBadge" style="display: none;">0</div>
+            </div>
+            <div class="nav-subtotal" id="navSubtotal" style="display: none;">$0.00</div>
+        </div>
+    </nav>
+
+    <button class="voucher-fab" id="voucherFab" onclick="openVouchersModal()" style="display: none;">
+        <div class="fab-icon">🎟️</div>
+        <div class="fab-badge" id="fabVoucherCount">0</div>
+    </button>
+
+
+    <div id="notificationToast" class="notification-toast" style="display: none;">
+        <div class="toast-content">
+            <div class="toast-icon-wrapper">
+                <div class="toast-icon"></div>
+            </div>
+            <div class="toast-text">
+                <div class="toast-title"></div>
+                <div class="toast-message"></div>
+            </div>
+        </div>
+        <button class="toast-close" onclick="closeNotificationToast()" aria-label="Close notification">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    </div>
+
+    <!-- 2. CONFIRM DIALOG MODAL (replacement for window.confirm()) -->
+    <div id="confirmModal" class="confirm-modal-overlay" style="display: none;">
+        <div class="confirm-modal">
+            <div class="confirm-modal-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h3 class="confirm-modal-title" id="confirmModalTitle">Confirm Action</h3>
+            <p class="confirm-modal-message" id="confirmModalMessage">Are you sure you want to proceed?</p>
+            <div class="confirm-modal-actions">
+                <button class="confirm-modal-btn cancel-btn" id="confirmCancelBtn">Cancel</button>
+                <button class="confirm-modal-btn confirm-btn" id="confirmOkBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. ALERT DIALOG MODAL (replacement for window.alert()) -->
+    <div id="alertModal" class="alert-modal-overlay" style="display: none;">
+        <div class="alert-modal">
+            <div class="alert-modal-icon" id="alertModalIcon">
+                <!-- Icon will be dynamically set based on type -->
+            </div>
+            <h3 class="alert-modal-title" id="alertModalTitle">Notification</h3>
+            <p class="alert-modal-message" id="alertModalMessage"></p>
+            <button class="alert-modal-btn" id="alertOkBtn">OK</button>
+        </div>
+    </div>
+
+    <!-- 4. VOUCHER REMOVAL CONFIRMATION (Enhanced version of your empty cart modal) -->
+    <div id="voucherRemovalModal" class="confirm-modal-overlay" style="display: none;">
+        <div class="confirm-modal voucher-removal-modal">
+            <div class="confirm-modal-icon voucher-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                    <line x1="1" y1="10" x2="23" y2="10"></line>
+                </svg>
+            </div>
+            <h3 class="confirm-modal-title">Remove Voucher?</h3>
+            <p class="confirm-modal-message" id="voucherRemovalMessage">
+                Are you sure you want to remove this voucher? Your discount will be removed.
+            </p>
+            <div class="confirm-modal-actions">
+                <button class="confirm-modal-btn cancel-btn" id="cancelVoucherRemoval">Cancel</button>
+                <button class="confirm-modal-btn confirm-btn danger" id="confirmVoucherRemoval">Yes, Remove</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. LOGOUT CONFIRMATION MODAL -->
+    <div id="logoutConfirmModal" class="confirm-modal-overlay" style="display: none;">
+        <div class="confirm-modal">
+            <div class="confirm-modal-icon logout-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+            </div>
+            <h3 class="confirm-modal-title">Logout Confirmation</h3>
+            <p class="confirm-modal-message">
+                Are you sure you want to logout? Your current session will be ended.
+            </p>
+            <div class="confirm-modal-actions">
+                <button class="confirm-modal-btn cancel-btn" id="cancelLogout">Cancel</button>
+                <button class="confirm-modal-btn confirm-btn" id="confirmLogout">Yes, Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+                window.modalState = {
+                                cartOpen: false,
+                                addonOpen: false,
+                                successOpen: false,
+                                editingMode: false,
+
+                                isAnyOpen() {
+                                    return this.cartOpen || this.addonOpen || this.successOpen;
+                                },
+
+                                updateState(newState) {
+                                    Object.assign(this, newState);
+                                    console.log('📊 Modal state:', {
+                                        cart: this.cartOpen,
+                                        addon: this.addonOpen,
+                                        success: this.successOpen,
+                                        editing: this.editingMode
+                                    });
+                                    this.scheduleBottomNavUpdate();
+                                },
+
+                                scheduleBottomNavUpdate() {
+                                    clearTimeout(this._visibilityTimeout);
+                                    this._visibilityTimeout = setTimeout(() => {
+                                        if (typeof updateBottomNavVisibility === 'function') {
+                                            updateBottomNavVisibility();
+                                        }
+                                    }, 50);
+                                }
+                            };
+
+                            // ============================================
+                            // UTILITY FUNCTIONS
+                            // ============================================
+
+                            function updateLandingTime() {
+                                const now = new Date();
+                                const timeString = now.toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                });
+                                const landingTimeEl = document.getElementById('landingTime');
+                                if (landingTimeEl) {
+                                    landingTimeEl.textContent = timeString;
+                                }
+                            }
+
+                            function updateTime() {
+                                const now = new Date();
+                                const currentTimeEl = document.getElementById('currentTime');
+                                if (currentTimeEl) {
+                                    currentTimeEl.textContent = now.toLocaleTimeString();
+                                }
+                            }
+
+                            // ============================================
+                            // MODAL MANAGEMENT FUNCTIONS (FIXED)
+                            // ============================================
+
+        function openCartModal() {
+            const overlay = document.getElementById('cartModalOverlay');
+            const modal = document.getElementById('cartModal');
+            const bottomNav = document.querySelector('.bottom-nav');
+
+            if (!overlay || !modal) return;
+
+            // Update state FIRST
+            window.modalState.updateState({ cartOpen: true });
+
+            // ✅ Hide bottom nav with class
+            if (bottomNav) {
+                bottomNav.classList.add('modal-open');
+            }
+
+            // Then update DOM
+            document.body.classList.add('modal-open');
+            overlay.style.display = 'block';
+            modal.style.display = 'block';
+
+            // Force reflow
+            void overlay.offsetHeight;
+
+            overlay.classList.add('active');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            console.log('🛒 Cart modal opened');
+        }
+
+        function closeCartModal() {
+            const overlay = document.getElementById('cartModalOverlay');
+            const modal = document.getElementById('cartModal');
+            const bottomNav = document.querySelector('.bottom-nav');
+
+            if (!overlay || !modal) return;
+
+            // Update state FIRST
+            window.modalState.updateState({
+                cartOpen: false,
+                editingMode: false
+            });
+
+            // ✅ Show bottom nav with class removal
+            if (bottomNav) {
+                bottomNav.classList.remove('modal-open');
+            }
+
+            // Update bottom nav visibility
+            updateBottomNavVisibility();
+
+            // Then update DOM
+            overlay.classList.remove('active');
+            modal.classList.remove('active');
+
+            // Wait for animation
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                modal.style.display = 'none';
+
+                // Only restore scroll if no modals open
+                if (!window.modalState.isAnyOpen()) {
+                    document.body.style.overflow = 'auto';
+                    document.body.classList.remove('modal-open');
+                }
+            }, 300);
+
+            window.currentEditingSno = null;
+            console.log('🛒 Cart modal closed');
+        }
+                            (function enableCartSwipeToClose() {
+                                const modal = document.getElementById('cartModal');
+                                if (!modal) return;
+
+                                let startX = 0;
+                                let startY = 0;
+                                let isSwiping = false;
+
+                                modal.addEventListener('touchstart', e => {
+                                    if (e.touches.length !== 1) return;
+                                    startX = e.touches[0].clientX;
+                                    startY = e.touches[0].clientY;
+                                    isSwiping = false;
+                                });
+
+                                modal.addEventListener('touchmove', e => {
+                                    if (e.touches.length !== 1) return;
+
+                                    const deltaX = e.touches[0].clientX - startX;
+                                    const deltaY = e.touches[0].clientY - startY;
+
+                                    // Only trigger if swipe is mostly horizontal and to the right
+                                    if (Math.abs(deltaY) < 30 && deltaX > 80) {
+                                        isSwiping = true;
+                                    }
+                                });
+
+                                modal.addEventListener('touchend', () => {
+                                    if (isSwiping) {
+                                        console.log('👉 Swipe right detected, closing cart modal');
+                                        closeCartModal();
+                                    }
+                                });
+                             })();
+
+
+                            function toggleCart() {
+                                if (window.modalState.cartOpen) {
+                                    closeCartModal();
+                                } else {
+                                    openCartModal();
+                                }
+                            }
+
+
+                        function openAddonModal() {
+                            const modal = document.getElementById('addonModal');
+                            const bottomNav = document.querySelector('.bottom-nav');
+                            if (!modal) return;
+
+                            // Track if editing existing item
+                            const isEditingExistingItem = window.currentEditingSno != null || window.modalState.cartOpen;
+
+                            // Close cart modal if it's open
+                            if (window.modalState.cartOpen) {
+                                const overlay = document.getElementById('cartModalOverlay');
+                                const cartModal = document.getElementById('cartModal');
+
+                                if (overlay && cartModal) {
+                                    overlay.classList.remove('active');
+                                    cartModal.classList.remove('active');
+                                    overlay.style.display = 'none';
+                                    cartModal.style.display = 'none';
+                                }
+                            }
+
+                            // Update modal state
+                            window.modalState.updateState({
+                                addonOpen: true,
+                                cartOpen: false,
+                                editingMode: isEditingExistingItem
+                            });
+
+                            // Show addon modal
+                            modal.classList.add('show');
+                            modal.classList.remove('close');
+
+                            // Hide bottom nav via class
+                            if (bottomNav) bottomNav.classList.remove('show');
+
+                            // Prevent page scroll
+                            document.body.style.overflow = 'hidden';
+
+                            console.log('➕ Addon modal opened', isEditingExistingItem ? '(edit mode)' : '(new item)');
+                        }
+
+
+
+                               function closeAddonModal() {
+                            const modal = document.getElementById('addonModal');
+                            const bottomNav = document.querySelector('.bottom-nav');
+                            if (!modal) return;
+
+                            const wasEditing = window.modalState.editingMode;
+                            const TRANSITION_MS = 300; // Match CSS transition
+
+                            // Hide addon modal
+                            modal.classList.remove('show');
+                            modal.classList.add('close');
+
+                            // Update modal state immediately
+                            window.modalState.updateState({ addonOpen: false });
+
+                            // After animation completes
+                            setTimeout(() => {
+                                document.body.style.overflow = '';
+
+                                if (wasEditing) {
+                                    console.log('🔄 Edit mode: returning to cart');
+
+                                    window.modalState.updateState({
+                                        editingMode: false,
+                                        cartOpen: false
+                                    });
+
+                                    if (typeof openCartModal === 'function') {
+                                        openCartModal(); // cart modal handles bottom-nav itself
+                                    }
+                                } else {
+                                    console.log('✅ New item mode: closing addon');
+
+                                    window.modalState.updateState({
+                                        editingMode: false,
+                                        cartOpen: false,
+                                        successOpen: false
+                                    });
+
+                                    // Show bottom nav smoothly via class
+                                    if (bottomNav) bottomNav.classList.add('show');
+                                }
+
+                                console.log('✅ Addon modal closed');
+                            }, TRANSITION_MS);
+                        }
+
+
+                            function openSuccessModal(salesNumber) {
+                                const modal = document.getElementById('successModal');
+                                const orderNumberEl = document.getElementById('orderNumber');
+
+                                if (!modal) return;
+
+                                window.modalState.updateState({ successOpen: true });
+
+                                if (orderNumberEl) {
+                                    // Use API sales number or generate from timestamp
+                                    orderNumberEl.textContent = salesNumber || `#${Date.now().toString().slice(-6)}`;
+                                }
+
+                                modal.style.display = 'flex';
+                                document.body.style.overflow = 'hidden';
+
+                                console.log('🎉 Success modal opened');
+                            }
+
+                            function closeSuccessModal() {
+                                const modal = document.getElementById('successModal');
+                                if (!modal) return;
+
+                                window.modalState.updateState({ successOpen: false });
+
+                                modal.style.display = 'none';
+
+                                if (!window.modalState.isAnyOpen()) {
+                                    document.body.style.overflow = 'auto';
+                                    document.body.classList.remove('modal-open');
+                                }
+
+                                if (typeof currentAddonParentItem !== 'undefined') {
+                                    currentAddonParentItem = null;
+                                }
+
+                                console.log('🎉 Success modal closed');
+                            }
+
+
+                                    function updateBottomNavVisibility() {
+                                        const bottomNav = document.querySelector('.bottom-nav');
+                                        if (!bottomNav) {
+                                            console.warn('⚠️ Bottom nav element not found');
+                                            return;
+                                        }
+
+                                        // Get current modal state
+                                        const isModalOpen = window.modalState.isAnyOpen();
+
+                                        console.log('🔍 Bottom nav check:', {
+                                            cartOpen: window.modalState.cartOpen,
+                                            addonOpen: window.modalState.addonOpen,
+                                            successOpen: window.modalState.successOpen,
+                                            anyModalOpen: isModalOpen
+                                        });
+
+                                        // Rule 1: ALWAYS hide if ANY modal is open
+                                        if (isModalOpen) {
+                                            bottomNav.style.display = 'none';
+                                            bottomNav.classList.remove('show');
+                                            console.log('🚫 Bottom nav hidden - modal open');
+                                            return;
+                                        }
+
+                                        // Rule 2: Check if cart has items (prioritize useOrder system)
+                                        const hasCartItems = (() => {
+                                            // Primary: Check useOrder system
+                                            if (typeof useOrder === 'function') {
+                                                const orderObj = useOrder();
+                                                const items = orderObj?.order?.sales_dtls || [];
+
+                                                // Check for actual items (not empty array)
+                                                const hasValidItems = items.some(item =>
+                                                    item && item.item_no && item.qty > 0
+                                                );
+
+                                                console.log('📦 useOrder check:', {
+                                                    totalItems: items.length,
+                                                    hasValidItems: hasValidItems
+                                                });
+
+                                                if (hasValidItems) return true;
+                                            }
+
+                                            // Fallback: Check DOM for empty cart message
+                                            const cartItemsEl = document.getElementById('cartItems');
+                                            const domCheck = cartItemsEl && !cartItemsEl.querySelector('.empty-cart');
+
+                                            console.log('🔍 DOM check:', { hasItems: domCheck });
+
+                                            return domCheck;
+                                        })();
+
+                                        // Rule 3: Show only if has items and no modals are open
+                                        if (hasCartItems) {
+                                            bottomNav.style.display = 'flex';
+                                            bottomNav.classList.add('show');
+                                            console.log('✅ Bottom nav shown - has items');
+                                        } else {
+                                            bottomNav.style.display = 'none';
+                                            bottomNav.classList.remove('show');
+                                            console.log('🚫 Bottom nav hidden - empty cart');
+                                        }
+                                    }
+
+
+                                    // ============================================
+                                    // ENHANCED CART MONITORING
+                                    // ============================================
+
+                                    function setupEnhancedCartMonitoring() {
+                                        // Track last known cart count
+                                        window._lastOrderItemCount = 0;
+
+                                        // Intercept renderCartFromOrder
+                                        if (typeof renderCartFromOrder === 'function') {
+                                            const originalRenderCart = window.renderCartFromOrder;
+                                            window.renderCartFromOrder = function(...args) {
+                                                console.log('🔄 renderCartFromOrder called');
+                                                const result = originalRenderCart.apply(this, args);
+
+                                                // Wait longer to ensure cart is fully rendered
+                                                setTimeout(() => {
+                                                    console.log('🔄 Updating bottom nav after renderCart');
+                                                    updateBottomNavVisibility();
+                                                }, 300);
+
+                                                return result;
+                                            };
+                                        }
+
+                                        // Intercept addToCart
+                                        if (typeof addToCart === 'function') {
+                                            const originalAddToCart = window.addToCart;
+                                            window.addToCart = function(...args) {
+                                                console.log('🛒 addToCart called');
+                                                const result = originalAddToCart.apply(this, args);
+
+                                                setTimeout(() => {
+                                                    console.log('🔄 Updating bottom nav after addToCart');
+                                                    updateBottomNavVisibility();
+                                                }, 400);
+
+                                                return result;
+                                            };
+                                        }
+
+                                        // Monitor order changes - ONLY when no modals are open
+                                        const checkOrderUpdates = setInterval(() => {
+                                            // Skip if any modal is open
+                                            if (window.modalState.isAnyOpen()) {
+                                                return;
+                                            }
+
+                                            if (typeof useOrder === 'function') {
+                                                const orderObj = useOrder();
+                                                const items = orderObj?.order?.sales_dtls || [];
+                                                const currentItemCount = items.filter(item =>
+                                                    item && item.item_no && item.qty > 0
+                                                ).length;
+
+                                                if (window._lastOrderItemCount !== currentItemCount) {
+                                                    console.log('🔄 Order count changed:', window._lastOrderItemCount, '→', currentItemCount);
+                                                    window._lastOrderItemCount = currentItemCount;
+
+                                                    // Only update if no modals are open
+                                                    if (!window.modalState.isAnyOpen()) {
+                                                        updateBottomNavVisibility();
+                                                    }
+                                                }
+                                            }
+                                        }, 500);
+
+                                        window._orderCheckInterval = checkOrderUpdates;
+                                    }
+
+                            // ============================================
+                            // EVENT HANDLERS & INITIALIZATION
+                            // ============================================
+
+                            function setupEventListeners() {
+                                // ESC key handler
+                                document.addEventListener('keydown', (event) => {
+                                    if (event.key === 'Escape') {
+                                        if (window.modalState.successOpen) closeSuccessModal();
+                                        else if (window.modalState.addonOpen) closeAddonModal();
+                                        else if (window.modalState.cartOpen) closeCartModal();
+                                    }
+                                });
+
+                                // Click outside handlers
+                                document.getElementById('addonModal')?.addEventListener('click', (e) => {
+                                    if (e.target === e.currentTarget) closeAddonModal();
+                                });
+
+                                document.getElementById('successModal')?.addEventListener('click', (e) => {
+                                    if (e.target === e.currentTarget) closeSuccessModal();
+                                });
+
+                                document.getElementById('cartModalOverlay')?.addEventListener('click', (e) => {
+                                    if (e.target === e.currentTarget) closeCartModal();
+                                });
+                            }
+
+                            function initializeApp() {
+                                console.log('🚀 Initializing kiosk application...');
+
+                                // Initialize time displays
+                                updateLandingTime();
+                                setInterval(updateLandingTime, 1000);
+
+                                if (typeof updateTime === 'function') {
+                                    updateTime();
+                                    setInterval(updateTime, 1000);
+                                }
+
+                                // Initialize language
+                                const savedLang = localStorage.getItem("selectedLang") || 'en';
+                                if (typeof selectLanguage === 'function') {
+                                    selectLanguage(savedLang);
+                                }
+
+                                // Setup event listeners
+                                setupEventListeners();
+
+                                // Enhanced cart monitoring
+                                setupEnhancedCartMonitoring();
+
+                                // Initialize bottom nav
+                                const bottomNav = document.querySelector('.bottom-nav');
+                                if (bottomNav) {
+                                    bottomNav.style.display = 'none'; // Start hidden
+
+                                    // Check initial state after load
+                                    setTimeout(() => {
+                                        console.log('🔧 Initial bottom nav check');
+                                        updateBottomNavVisibility();
+                                    }, 500);
+                                } else {
+                                    console.error('❌ Bottom nav element not found');
+                                }
+
+                                console.log('✅ App initialization complete');
+                            }
+
+                            // ============================================
+                            // GLOBAL EXPORTS
+                            // ============================================
+
+                            window.toggleCart = toggleCart;
+                            window.openCartModal = openCartModal;
+                            window.closeCartModal = closeCartModal;
+                            window.openAddonModal = openAddonModal;
+                            window.closeAddonModal = closeAddonModal;
+                            window.openSuccessModal = openSuccessModal;
+                            window.closeSuccessModal = closeSuccessModal;
+                            window.updateBottomNavVisibility = updateBottomNavVisibility;
+
+                            // Backward compatibility
+                            window.closeCart = closeCartModal;
+                            window.closeModal = closeSuccessModal;
+
+                            // ============================================
+                            // APPLICATION START
+                            // ============================================
+
+                            document.addEventListener("DOMContentLoaded", initializeApp);
+
+
+                            // Cancel empty cart
+                            document.getElementById('cancelEmptyCart').addEventListener('click', function () {
+                                console.log('Empty cart cancelled by user');
+                                const modal = document.getElementById('emptyCartModalOverlay');
+                                modal.classList.remove('active');
+                            });
+
+
+                            function toggleAutoScroll() {
+                            const toggle = document.getElementById('autoScrollToggle');
+                            const playIcon = toggle.querySelector('.icon-play');
+                            const pauseIcon = toggle.querySelector('.icon-pause');
+
+                            if (window.mobileCategoryTabs.isAutoScrollEnabled()) {
+                                // Stop auto-scroll
+                                window.mobileCategoryTabs.stopAutoScroll();
+                                toggle.classList.remove('active');
+                                playIcon.style.display = 'block';
+                                pauseIcon.style.display = 'none';
+
+                                // Remove progress class
+                                document.querySelectorAll('.category-tab').forEach(tab => {
+                                    tab.classList.remove('auto-scrolling');
+                                });
+                            } else {
+                                // Start auto-scroll
+                                window.mobileCategoryTabs.startAutoScroll();
+                                toggle.classList.add('active');
+                                playIcon.style.display = 'none';
+                                pauseIcon.style.display = 'block';
+
+                                // Add progress class to active tab
+                                const activeTab = document.querySelector('.category-tab.active');
+                                if (activeTab) {
+                                    activeTab.classList.add('auto-scrolling');
+                                }
+                            }
+                        }
+
+                        // ============================================
+                        // SHOW CONTROL ON MOBILE
+                        // ============================================
+                        function initAutoScrollControl() {
+                            if (window.innerWidth <= 992) {
+                                const control = document.getElementById('autoScrollControl');
+                                if (control) {
+                                    control.style.display = 'block';
+
+                                    // Set initial state
+                                    setTimeout(() => {
+                                        const toggle = document.getElementById('autoScrollToggle');
+                                        if (toggle && window.mobileCategoryTabs.isAutoScrollEnabled()) {
+                                            toggle.classList.add('active');
+                                            toggle.querySelector('.icon-play').style.display = 'none';
+                                            toggle.querySelector('.icon-pause').style.display = 'block';
+                                        }
+                                    }, 3500);
+                                }
+                            }
+                        }
+
+                        // Initialize on load
+                        document.addEventListener('DOMContentLoaded', initAutoScrollControl);
+
+                        // Update active tab progress indicator
+                        document.addEventListener('click', function(e) {
+                            if (e.target.closest('.category-tab')) {
+                                document.querySelectorAll('.category-tab').forEach(tab => {
+                                    tab.classList.remove('auto-scrolling');
+                                });
+
+                                if (window.mobileCategoryTabs.isAutoScrollEnabled()) {
+                                    setTimeout(() => {
+                                        const activeTab = document.querySelector('.category-tab.active');
+                                        if (activeTab) {
+                                            activeTab.classList.add('auto-scrolling');
+                                        }
+                                    }, 100);
+                                }
+                            }
+                        });
+
+                        // ============================================
+                        // AUTO-SWITCH CATEGORY TABS ON SCROLL
+                        // ============================================
+
+                        function initScrollToSwitchCategory() {
+                            const menuSection = document.querySelector('.menu-section');
+                            const categoryTabs = document.querySelectorAll('.category-tab');
+
+                            if (!menuSection || categoryTabs.length === 0) {
+                                console.warn('⚠️ Menu section or category tabs not found');
+                                return;
+                            }
+
+                            let isScrolling;
+                            let currentActiveCategory = null;
+                            let isUserScrolling = false;
+
+                            console.log('🔄 Initializing scroll-to-switch category detection');
+
+                            // Debounced scroll handler
+                            menuSection.addEventListener('scroll', function() {
+                                isUserScrolling = true;
+                                window.clearTimeout(isScrolling);
+
+                                isScrolling = setTimeout(function() {
+                                    detectVisibleCategory();
+                                    isUserScrolling = false;
+                                }, 150);
+                            });
+
+                            function detectVisibleCategory() {
+                                const menuSectionRect = menuSection.getBoundingClientRect();
+                                const viewportTop = menuSectionRect.top + 80; // Offset for header
+
+                                // Get all visible category sections
+                                const categorySections = document.querySelectorAll('[data-category-section]');
+
+                                if (categorySections.length === 0) {
+                                    console.warn('⚠️ No category sections found - make sure renderCategoryByCode adds data-category-section');
+                                    return;
+                                }
+
+                                let visibleCategory = null;
+                                let maxVisibleArea = 0;
+
+                                // Find category with most visible area
+                                categorySections.forEach(section => {
+                                    const sectionRect = section.getBoundingClientRect();
+
+                                    // Calculate visible area
+                                    const visibleTop = Math.max(sectionRect.top, menuSectionRect.top);
+                                    const visibleBottom = Math.min(sectionRect.bottom, menuSectionRect.bottom);
+                                    const visibleArea = Math.max(0, visibleBottom - visibleTop);
+
+                                    if (visibleArea > maxVisibleArea) {
+                                        maxVisibleArea = visibleArea;
+                                        visibleCategory = section.dataset.categorySection;
+                                    }
+                                });
+
+                                // Switch active tab if category changed
+                                if (visibleCategory && visibleCategory !== currentActiveCategory) {
+                                    currentActiveCategory = visibleCategory;
+                                    switchActiveTab(visibleCategory);
+                                }
+                            }
+
+                            function switchActiveTab(categoryCode) {
+                                // Don't switch if user is manually clicking tabs
+                                if (document.querySelector('.category-tab:active')) {
+                                    return;
+                                }
+
+                                // Remove active from all tabs
+                                categoryTabs.forEach(tab => {
+                                    tab.classList.remove('active');
+                                });
+
+                                // Find and activate matching tab
+                                const targetTab = document.querySelector(`.category-tab[data-category="${categoryCode}"]`);
+
+                                if (targetTab) {
+                                    targetTab.classList.add('active');
+
+                                    // Scroll tab into view on mobile
+                                    if (window.innerWidth <= 992) {
+                                        const sidebar = document.querySelector('.navigation-sidebar');
+                                        if (sidebar) {
+                                            const tabLeft = targetTab.offsetLeft;
+                                            const tabWidth = targetTab.offsetWidth;
+                                            const sidebarWidth = sidebar.offsetWidth;
+
+                                            sidebar.scrollTo({
+                                                left: tabLeft - (sidebarWidth / 2) + (tabWidth / 2),
+                                                behavior: 'smooth'
+                                            });
+                                        }
+                                    }
+
+                                    console.log('📍 Auto-switched to category:', categoryCode);
+                                }
+                            }
+
+                            // Trigger initial detection
+                            setTimeout(() => {
+                                detectVisibleCategory();
+                            }, 500);
+
+                            console.log('✅ Scroll-to-switch-category initialized');
+                        }
+
+                        // ============================================
+                        // PAUSE AUTO-SCROLL WHEN USER SCROLLS MENU
+                        // ============================================
+
+                        function pauseAutoScrollOnMenuScroll() {
+                            if (window.innerWidth > 992) return;
+
+                            const menuSection = document.querySelector('.menu-section');
+
+                            if (!menuSection) return;
+
+                            const interactionEvents = ['touchstart', 'mousedown', 'wheel', 'scroll'];
+
+                            interactionEvents.forEach(event => {
+                                menuSection.addEventListener(event, () => {
+                                    // Pause auto-scroll carousel when user scrolls menu
+                                    if (typeof window.mobileCategoryTabs !== 'undefined' &&
+                                        typeof window.mobileCategoryTabs.pauseAutoScroll === 'function') {
+                                        window.mobileCategoryTabs.pauseAutoScroll();
+                                    }
+                                }, { passive: true });
+                            });
+
+                            console.log('✅ Menu scroll detection initialized');
+                        }
+
+                        // ============================================
+                        // SMOOTH SCROLL TO CATEGORY
+                        // ============================================
+
+                        function scrollToCategorySection(categoryCode) {
+                            const categorySection = document.querySelector(`[data-category-section="${categoryCode}"]`);
+                            const menuSection = document.querySelector('.menu-section');
+
+                            if (!categorySection || !menuSection) return;
+
+                            const menuSectionRect = menuSection.getBoundingClientRect();
+                            const sectionRect = categorySection.getBoundingClientRect();
+
+                            // Calculate scroll position (account for header)
+                            const scrollTop = menuSection.scrollTop + sectionRect.top - menuSectionRect.top - 20;
+
+                            menuSection.scrollTo({
+                                top: scrollTop,
+                                behavior: 'smooth'
+                            });
+                        }
+
+                        // ============================================
+                        // ENHANCE CATEGORY TAB CLICKS
+                        // ============================================
+
+                        function enhanceCategoryTabClicks() {
+                            const categoryTabs = document.querySelectorAll('.category-tab');
+
+                            categoryTabs.forEach(tab => {
+                                // Store original click handler
+                                const originalOnClick = tab.onclick;
+
+                                tab.addEventListener('click', function(e) {
+                                    const categoryCode = this.dataset.category;
+
+                                    // Execute original handler if exists
+                                    if (originalOnClick) {
+                                        originalOnClick.call(this, e);
+                                    }
+
+                                    // Smooth scroll to category section
+                                    setTimeout(() => {
+                                        scrollToCategorySection(categoryCode);
+                                    }, 100);
+                                });
+                            });
+                        }
+
+                        // ============================================
+                        // INITIALIZE ON DOM READY
+                        // ============================================
+
+                        (function initScrollFeatures() {
+                            console.log('🚀 Initializing enhanced scroll features...');
+
+                            // Wait for GetHomeAPI.js to load and render categories
+                            const initTimer = setInterval(() => {
+                                const menuSection = document.querySelector('.menu-section');
+                                const categoryTabs = document.querySelectorAll('.category-tab');
+
+                                if (menuSection && categoryTabs.length > 0) {
+                                    clearInterval(initTimer);
+
+                                    console.log('✅ Menu elements found, initializing scroll detection');
+
+                                    // Initialize all features
+                                    initScrollToSwitchCategory();
+                                    pauseAutoScrollOnMenuScroll();
+                                    enhanceCategoryTabClicks();
+
+                                    console.log('✅ All scroll features initialized');
+                                }
+                            }, 500); // Check every 500ms
+
+                            // Timeout after 10 seconds
+                            setTimeout(() => {
+                                clearInterval(initTimer);
+                                console.warn('⚠️ Scroll detection initialization timeout');
+                            }, 10000);
+                        })();
+
+                        // ============================================
+                        // EXPORT FOR GLOBAL USE
+                        // ============================================
+
+                        window.categoryScrollSync = {
+                            init: initScrollToSwitchCategory,
+                            scrollToCategory: scrollToCategorySection,
+                            detectVisible: function() {
+                                const menuSection = document.querySelector('.menu-section');
+                                if (menuSection) {
+                                    menuSection.dispatchEvent(new Event('scroll'));
+                                }
+                            }
+                        };
+
+                        // ============================================
+                        // RE-INITIALIZE ON RESIZE (FOR ORIENTATION CHANGES)
+                        // ============================================
+
+                                let resizeTimer;
+                                window.addEventListener('resize', function() {
+                                    clearTimeout(resizeTimer);
+                                    resizeTimer = setTimeout(() => {
+                                        console.log('🔄 Window resized, re-initializing scroll detection');
+                                        if (typeof initScrollToSwitchCategory === 'function') {
+                                            initScrollToSwitchCategory();
+                                        }
+                                    }, 250);
+                                });
+
+                                // ============================================
+                                // AUTO-LOAD NEXT CATEGORY ON SCROLL TO BOTTOM (INFINITE SCROLL)
+                                // ============================================
+
+                                function initInfiniteScrollCategories() {
+                                    const menuSection = document.querySelector('.menu-section');
+                                    const categoryTabs = document.querySelectorAll('.category-tab');
+
+                                    if (!menuSection || categoryTabs.length === 0) {
+                                        console.warn('⚠️ Menu section or category tabs not found for infinite scroll');
+                                        return;
+                                    }
+
+                                    let isLoadingNextCategory = false;
+                                    let allCategories = Array.from(categoryTabs).map(tab => tab.dataset.category);
+                                    let loadedCategories = new Set(); // Track which categories are already loaded
+
+                                    console.log('🔄 Initializing infinite scroll for categories');
+                                    console.log('📋 Available categories:', allCategories);
+
+                                    // Detect scroll to bottom
+                                    menuSection.addEventListener('scroll', function() {
+                                        // Don't trigger if already loading
+                                        if (isLoadingNextCategory) return;
+
+                                        const scrollTop = menuSection.scrollTop;
+                                        const scrollHeight = menuSection.scrollHeight;
+                                        const clientHeight = menuSection.clientHeight;
+
+                                        // Calculate distance from bottom (100px threshold for early trigger)
+                                        const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+
+                                        // When user is near bottom (within 100px)
+                                        if (distanceFromBottom < 100) {
+                                            loadNextCategory();
+                                        }
+                                    });
+
+                                    async function loadNextCategory() {
+                                        // Get currently visible category
+                                        const menuGrid = document.getElementById('menuGrid');
+                                        if (!menuGrid) return;
+
+                                        const categorySections = menuGrid.querySelectorAll('[data-category-section]');
+                                        if (categorySections.length === 0) return;
+
+                                        // Get the last loaded category
+                                        const lastSection = categorySections[categorySections.length - 1];
+                                        const lastCategoryCode = lastSection.dataset.categorySection;
+
+                                        // Find index of last category
+                                        const lastIndex = allCategories.indexOf(lastCategoryCode);
+                                        const nextIndex = lastIndex + 1;
+
+                                        if (nextIndex >= allCategories.length) {
+                                            console.log('✅ All categories loaded');
+                                            return;
+                                        }
+
+                                        const nextCategoryCode = allCategories[nextIndex];
+
+                                        // Check if already loaded
+                                        if (loadedCategories.has(nextCategoryCode)) {
+                                            console.log(`⚠️ Category ${nextCategoryCode} already loaded`);
+                                            return;
+                                        }
+
+                                        console.log(`📦 Loading next category: ${nextCategoryCode} (${nextIndex + 1}/${allCategories.length})`);
+
+                                        isLoadingNextCategory = true;
+                                        loadedCategories.add(nextCategoryCode);
+
+                                        // Show loading indicator
+                                        const loadingDiv = document.createElement('div');
+                                        loadingDiv.id = 'category-loading';
+                                        loadingDiv.className = 'category-loading-indicator';
+                                        loadingDiv.innerHTML = `
+                                            <div class="loading-spinner"></div>
+                                            <p class="loading-text">Loading more items...</p>
+                                        `;
+                                        menuGrid.appendChild(loadingDiv);
+
+                                        try {
+                                            // Call your existing function to append category
+                                            await appendCategoryToGrid(nextCategoryCode);
+
+                                            console.log(`✅ Loaded category: ${nextCategoryCode}`);
+
+                                        } catch (error) {
+                                            console.error('❌ Error loading next category:', error);
+                                            loadedCategories.delete(nextCategoryCode); // Remove from loaded set on error
+                                        } finally {
+                                            // Remove loading indicator
+                                            const loadingIndicator = document.getElementById('category-loading');
+                                            if (loadingIndicator) {
+                                                loadingIndicator.remove();
+                                            }
+
+                                            isLoadingNextCategory = false;
+                                        }
+                                    }
+
+                                    console.log('✅ Infinite scroll initialized');
+                                }
+
+                                // ============================================
+                                // APPEND CATEGORY TO GRID (DON'T REPLACE)
+                                // ============================================
+
+                                async function appendCategoryToGrid(categoryCode) {
+                                    const container = document.getElementById('menuGrid');
+                                    if (!container) return;
+
+                                    // Check if category already exists
+                                    if (container.querySelector(`[data-category-section="${categoryCode}"]`)) {
+                                        console.log(`⚠️ Category ${categoryCode} already in DOM`);
+                                        return;
+                                    }
+
+                                    // Get selected language
+                                    const selectedLang = localStorage.getItem("selectedLang") || 'en';
+
+                                    try {
+                                        // Access cache
+                                        if (typeof useCache !== 'function') {
+                                            console.error('❌ useCache not available');
+                                            return;
+                                        }
+
+                                        const { items } = useCache();
+
+                                        if (!Array.isArray(items) || !items.length) {
+                                            console.error('❌ No items in cache');
+                                            return;
+                                        }
+
+                                        // Create category section wrapper
+                                        const categorySection = document.createElement('div');
+                                        categorySection.className = 'category-section';
+                                        categorySection.dataset.categorySection = categoryCode;
+
+                                        // Get translated category name
+                                        let categoryName = categoryCode;
+                                        if (typeof getTranslatedName === 'function') {
+                                            try {
+                                                categoryName = await getTranslatedName(categoryCode, categoryCode, selectedLang, "category");
+                                            } catch (error) {
+                                                console.warn('Translation failed:', error);
+                                            }
+                                        }
+
+                                        // Add sticky category title
+                                        const categoryTitle = document.createElement('h2');
+                                        categoryTitle.className = 'category-section-title';
+                                        categoryTitle.textContent = categoryName;
+                                        categorySection.appendChild(categoryTitle);
+
+                                        // Filter items for this category
+                                        const seen = new Set();
+                                        const code = categoryCode.trim().toLowerCase();
+
+                                        const filteredItems = items.filter(item => {
+                                            if (!item || !item.item_no || seen.has(item.item_no)) return false;
+                                            const itemCat = String(item.category_code || "").trim().toLowerCase();
+                                            if (!itemCat || itemCat === "null" || itemCat !== code) return false;
+                                            seen.add(item.item_no);
+                                            return true;
+                                        });
+
+                                        if (filteredItems.length === 0) {
+                                            console.log(`⚠️ No items in category ${categoryCode}`);
+                                            return;
+                                        }
+
+                                        // Translate items
+                                        let translatedItems = filteredItems;
+                                        if (typeof getTranslatedName === 'function') {
+                                            const translatedResults = await Promise.allSettled(
+                                                filteredItems.map(async item => {
+                                                    try {
+                                                        const display_name = await getTranslatedName(item.item_no, item.item_name, selectedLang, "item");
+                                                        return { ...item, display_name };
+                                                    } catch (error) {
+                                                        return { ...item, display_name: item.item_name || item.item_no };
+                                                    }
+                                                })
+                                            );
+
+                                            translatedItems = translatedResults
+                                                .filter(result => result.status === 'fulfilled')
+                                                .map(result => result.value);
+                                        }
+
+                                        // Create items grid container
+                                        const itemsGrid = document.createElement('div');
+                                        itemsGrid.className = 'menu-grid';
+
+                                        // Render items using your existing helper functions
+                                        itemsGrid.innerHTML = translatedItems.map((item, index) => {
+                                            const id = item.item_no;
+                                            const hasMenuTypeGrpDtls = Array.isArray(item.itemmaster_menutype_grpdtls)
+                                                ? item.itemmaster_menutype_grpdtls.length > 0
+                                                : Boolean(item.itemmaster_menutype_grpdtls);
+
+                                            // Get price
+                                            let priceValue = 0;
+                                            if (typeof getPriceByServiceType === 'function') {
+                                                const priceObj = item?.selling_uom_dtls?.[0]?.price_dtls?.[0] || item;
+                                                priceValue = hasMenuTypeGrpDtls ? null : parseFloat(getPriceByServiceType(priceObj));
+                                            }
+                                            const displayPrice = !isNaN(priceValue) && priceValue > 0 ? `$${priceValue.toFixed(2)}` : '';
+
+                                            // Get image URL
+                                            let imageUrl = '';
+                                            if (typeof resolveImageUrl === 'function') {
+                                                imageUrl = resolveImageUrl(item, null);
+                                            } else {
+                                                imageUrl = item.tqr_image_url || item.item_image || '';
+                                                if (imageUrl && !imageUrl.startsWith('http')) {
+                                                    const baseUrl = window.RESTAURANT_CONFIG?.baseImageUrl || '/API/GetImageProxy?imageUrl=';
+                                                    imageUrl = baseUrl + imageUrl;
+                                                }
+                                            }
+
+                                            const restaurantLogo = window.RESTAURANT_CONFIG?.logo || '';
+
+                                            return `
+                                                <div class="menu-item p-4 border rounded shadow" data-item-name="${item.item_name}">
+                                                    <div class="item-image">
+                                                        <div class="image-wrapper" style="position: relative; width: 100%; height: 100%; background: #f0f0f0; border-radius: var(--radius-md); overflow: hidden;">
+                                                            <img src="${imageUrl}"
+                                                                alt="${item.display_name}"
+                                                                loading="lazy"
+                                                                decoding="async"
+                                                                style="width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-md); display: block;"
+                                                                onerror="this.onerror=null; if(this.src!=='${restaurantLogo}') this.src='${restaurantLogo}';">
+                                                        </div>
+                                                    </div>
+                                                    <div class="item-info">
+                                                        <h3 class="font-semibold">${item.display_name}</h3>
+                                                        <p class="item-description text-sm text-gray-600">${item.item_desc || ''}</p>
+                                                        <div class="item-footer flex justify-between items-center mt-2">
+                                                            <span class="item-price font-bold ${hasMenuTypeGrpDtls ? 'invisible' : ''}">
+                                                                ${displayPrice}
+                                                            </span>
+                                                            <button class="add-btn bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded w-full max-w-[100px]"
+                                                                data-item-id="${id}">
+                                                                Add to Cart
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('');
+
+                                        categorySection.appendChild(itemsGrid);
+                                        container.appendChild(categorySection);
+
+                                        // Attach event listeners for "Add to Cart" buttons
+                                        const addButtons = itemsGrid.querySelectorAll('.add-btn');
+                                        addButtons.forEach(btn => {
+                                            btn.addEventListener('click', function(e) {
+                                                e.stopPropagation();
+                                                const itemId = this.getAttribute('data-item-id');
+                                                if (typeof addToCart === 'function') {
+                                                    addToCart(itemId);
+                                                }
+                                            });
+                                        });
+
+                                        console.log(`✅ Appended ${translatedItems.length} items for category ${categoryCode}`);
+
+                                    } catch (error) {
+                                        console.error('❌ Error in appendCategoryToGrid:', error);
+                                    }
+                                }
+
+                                // ============================================
+                                // ADD LOADING INDICATOR STYLES
+                                // ============================================
+
+                                function addInfiniteScrollStyles() {
+                                    if (document.getElementById('infinite-scroll-styles')) return;
+
+                                    const style = document.createElement('style');
+                                    style.id = 'infinite-scroll-styles';
+                                    style.textContent = `
+                                        /* Category Section Styling */
+                                        .category-section {
+                                            margin-bottom: 32px;
+                                        }
+
+                                        .category-section-title {
+                                            position: sticky;
+                                            top: 0;
+                                            background: white;
+                                            z-index: 10;
+                                            padding: 16px 20px;
+                                            margin: 0 0 20px 0;
+                                            font-size: 1.5rem;
+                                            font-weight: 700;
+                                            color: #1f2937;
+                                            border-bottom: 3px solid #e5e7eb;
+                                            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                                        }
+
+                                        /* Loading Indicator */
+                                        .category-loading-indicator {
+                                            display: flex;
+                                            flex-direction: column;
+                                            align-items: center;
+                                            justify-content: center;
+                                            padding: 40px 20px;
+                                            gap: 16px;
+                                        }
+
+                                        .loading-spinner {
+                                            width: 48px;
+                                            height: 48px;
+                                            border: 4px solid #e5e7eb;
+                                            border-top-color: var(--primary, #3b82f6);
+                                            border-radius: 50%;
+                                            animation: spin 1s linear infinite;
+                                        }
+
+                                        .loading-text {
+                                            font-size: 1rem;
+                                            color: #6b7280;
+                                            font-weight: 500;
+                                        }
+
+                                @@keyframes spin {
+                                            to { transform: rotate(360deg); }
+                                        }
+
+                                        /* Smooth scrolling */
+                                        .menu-section {
+                                            scroll-behavior: smooth;
+                                        }
+
+                                        /* Mobile optimizations */
+                                @@media (max-width: 992px) {
+                                            .category-section-title {
+                                                font-size: 1.25rem;
+                                                padding: 12px 16px;
+                                            }
+                                        }
+                                    `;
+                                    document.head.appendChild(style);
+                                }
+
+                                // ============================================
+                                // INITIALIZE INFINITE SCROLL ON DOM READY
+                                // ============================================
+
+                                (function initInfiniteScrollFeature() {
+                                    console.log('🚀 Initializing infinite scroll feature...');
+
+                                    // Add styles first
+                                    addInfiniteScrollStyles();
+
+                                    // Wait for menu to be rendered
+                                    const initTimer = setInterval(() => {
+                                        const menuSection = document.querySelector('.menu-section');
+                                        const categoryTabs = document.querySelectorAll('.category-tab');
+                                        const menuGrid = document.getElementById('menuGrid');
+
+                                        if (menuSection && categoryTabs.length > 0 && menuGrid) {
+                                            clearInterval(initTimer);
+
+                                            console.log('✅ Menu elements found, initializing infinite scroll');
+
+                                            // Small delay to let initial category load
+                                            setTimeout(() => {
+                                                initInfiniteScrollCategories();
+                                            }, 1000);
+                                        }
+                                    }, 500);
+
+                                    // Timeout after 10 seconds
+                                    setTimeout(() => {
+                                        clearInterval(initTimer);
+                                        console.warn('⚠️ Infinite scroll initialization timeout');
+                                    }, 10000);
+                                })();
+
+                                // ============================================
+                                // EXPORT FOR GLOBAL USE
+                                // ============================================
+
+                                window.infiniteScroll = {
+                                    init: initInfiniteScrollCategories,
+                                    appendCategory: appendCategoryToGrid
+                                };
+
+                                        // Enhanced scroll behavior
+                                const navSidebar = document.querySelector('.navigation-sidebar');
+                                if (navSidebar) {
+                                    let scrollTimeout;
+
+                                    navSidebar.addEventListener('scroll', () => {
+                                        // Show scrollbar while scrolling
+                                        navSidebar.classList.add('scrolling');
+
+                                        // Check scroll position
+                                        const scrollLeft = navSidebar.scrollLeft;
+                                        const maxScroll = navSidebar.scrollWidth - navSidebar.clientWidth;
+
+                                        if (scrollLeft <= 10) {
+                                            navSidebar.classList.add('scroll-start');
+                                        } else {
+                                            navSidebar.classList.remove('scroll-start');
+                                        }
+
+                                        if (scrollLeft >= maxScroll - 10) {
+                                            navSidebar.classList.add('scroll-end');
+                                        } else {
+                                            navSidebar.classList.remove('scroll-end');
+                                        }
+
+                                        // Hide scrollbar after scrolling stops
+                                        clearTimeout(scrollTimeout);
+                                        scrollTimeout = setTimeout(() => {
+                                            navSidebar.classList.remove('scrolling');
+                                        }, 1000);
+                                    });
+                                }
+
+
+                function showLoginScreen() {
+                    const loginModal = document.getElementById('loginModal');
+                    if (loginModal) {
+                        loginModal.style.display = 'flex';
+                        setTimeout(() => {
+                            const phoneInput = document.getElementById('phoneNumber');
+                            if (phoneInput) phoneInput.focus();
+                        }, 300);
+                    }
+                }
+
+                function closeLoginModal() {
+                    const loginModal = document.getElementById('loginModal');
+                    if (loginModal) {
+                        loginModal.style.display = 'none';
+                        const phoneInput = document.getElementById('phoneNumber');
+                        if (phoneInput) phoneInput.value = '';
+                    }
+                }
+
+                function proceedAsGuest() {
+                    // Your existing guest logic
+                    console.log('Proceeding as guest');
+                }
+
+                async function startNewOrder() {
+                    const storeName = localStorage.getItem('storename');
+                    const deviceId  = localStorage.getItem("sok_device_id");
+                           console.log("🔄 Start Over button clicked");
+                    console.log("🔍 saveCacheBeforeRedirect available:", typeof saveCacheBeforeRedirect, saveCacheBeforeRedirect);
+
+                    // ✅ FIX 1: Read itemRemarks safely via apiManager on window
+                    // ✅ Correct — data lives in the loadedData Map
+                    const itemRemarks = window.apiManager?.loadedData?.get('itemRemarks') ?? [];
+                    console.log("itemRemarks after startOver:", itemRemarks?.length);
+
+                    // ✅ FIX 2: selectedRemarks belongs to GetHomeAPI scope — reset via window
+                    if (typeof window.resetSelectedRemarks === 'function') {
+                        window.resetSelectedRemarks();
+                    } else {
+                        // fallback: just don't touch it here, let addToCart handle its own state
+                        console.warn("⚠️ resetSelectedRemarks not exposed to window");
+                    }
+
+                    if (localStorage.getItem('ordering_page_status') === 'closed') {
+                        const reason = localStorage.getItem('ordering_closed_reason') || 'Ordering unavailable';
+                        typeof showToast === 'function'
+                            ? showToast(reason, 'error', 'Ordering Unavailable', 4000)
+                            : alert(reason);
+                        return;
+                    }
+
+                    const confirmed = typeof showConfirm === 'function'
+                        ? await showConfirm(
+                            'This will clear your cart and log you out. Continue?',
+                            'Start New Order',
+                            { confirmText: 'Yes, Start Over', cancelText: 'Cancel', danger: false }
+                          )
+                        : confirm('Are you sure you want to start a new order? This will clear your cart.');
+
+                    if (!confirmed) {
+                        console.log("❌ User cancelled start over");
+                        return;
+                    }
+
+                    console.log("✅ User confirmed - proceeding with start over");
+                    try {
+                        if (typeof showToast === 'function') {
+                            showToast('Clearing your order...', 'info', 'Please wait', 2000);
+                        }
+
+                        const orderId = localStorage.getItem('currentOrderId');
+
+                        // STEP 1: Clear order on server
+                        if (deviceId) {
+                            const outlet = window.sokWebSocket?.deviceInfo?.outlet
+                                || localStorage.getItem("sok_location")
+                                || storeName;
+
+                            console.log("📤 Clearing order cache on server...", { deviceId, outlet });
+
+                            try {
+                                const response = await fetch(`/API/SOKOrder/${outlet}/${deviceId}/cache/clear`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" }
+                                });
+
+                                if (response.ok) {
+                                    const result = await response.json();
+                                    console.log("📥 Server clear response:", result);
+                                    if (result.success) {
+                                        console.log("✅ Server confirmed order cleared");
+                                        if (typeof showToast === 'function') {
+                                            showToast('Order cleared on server', 'success', 'Synced', 1000);
+                                        }
+                                    } else {
+                                        console.warn("⚠️ Server rejected clear:", result.error);
+                                    }
+                                } else {
+                                    console.error("❌ Server clear failed:", response.status, await response.text());
+                                }
+                            } catch (fetchError) {
+                                console.error("❌ Fetch error clearing cache:", fetchError);
+                            }
+                        } else {
+                            console.warn("⚠️ No deviceId — skipping server clear");
+                        }
+
+                        // STEP 2: WebSocket broadcast
+                        if (window.sokWebSocket?.ws?.readyState === WebSocket.OPEN
+                            && window.sokWebSocket.deviceInfo?.deviceId) {
+                            try {
+                                window.sokWebSocket.ws.send(JSON.stringify({
+                                    type:      'ordering_page_closed',
+                                    action:    'ordering_page_closed',
+                                    orderId:   orderId || null,
+                                    deviceId,
+                                    storeName,
+                                    outlet:    window.sokWebSocket.deviceInfo.outlet || 'default',
+                                    timestamp: Date.now(),
+                                    message:   'Order cleared by user - Start Over',
+                                    reason:    'start_over',
+                                    clearedBy: 'kiosk_user'
+                                }));
+                                console.log("✅ WebSocket clear_order broadcast sent");
+                            } catch (wsError) {
+                                console.warn("⚠️ WebSocket broadcast failed (non-critical):", wsError);
+                            }
+                        }
+
+                        // STEP 3: Force clear local order state
+                        if (window.sokWebSocket && typeof window.sokWebSocket.clearOrderState === 'function') {
+                            console.log("🧹 Force clearing local order state");
+                            window.sokWebSocket.clearOrderState(true);
+                        }
+
+                        // STEP 4: Clear member info
+                        const memberName = localStorage.getItem('memberName');
+                        if (memberName) {
+                            console.log("👤 Logging out:", memberName);
+                            if (typeof showToast === 'function') {
+                                showToast(`Goodbye, ${memberName}!`, 'success', 'Logged Out', 1000);
+                            }
+                        }
+
+                        [
+                            'memberName', 'memberEmail', 'memberPhone', 'memberId',
+                            'memberPoints', 'currentMember', 'loggedInMember',
+                            'memberInfo', 'memberSession', 'memberVouchers'
+                        ].forEach(k => localStorage.removeItem(k));
+                        console.log("✅ Member info cleared");
+
+                        // STEP 5: Clear order-related storage
+                        [
+                            'currentOrderId', 'orderType', 'tableNumber',
+                            'orderData', 'order', 'currentOrder'
+                        ].forEach(k => localStorage.removeItem(k));
+                        console.log("✅ Storage cleared");
+
+                        if (typeof showToast === 'function') {
+                            showToast('Starting fresh!', 'success', 'Ready', 1000);
+                        }
+
+                        // ✅ STEP 6: Save API cache AFTER all localStorage clears, right before redirect
+                        // Must be here — after Step 5 wipes order keys, before WebSocket disconnects
+                        if (typeof saveCacheBeforeRedirect === 'function') {
+                            saveCacheBeforeRedirect();
+                        }
+
+                        // STEP 7: Disconnect WebSocket before redirect
+                        if (window.sokWebSocket && typeof window.sokWebSocket.disconnect === 'function') {
+                            console.log("🔌 Disconnecting WebSocket before redirect");
+                            window.sokWebSocket.disconnect();
+                        }
+
+                        // STEP 8: Wait and redirect
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+
+                        console.log("🏠 Redirecting to home");
+                        window.location.replace(
+                            `/KIOSK/Home/${encodeURIComponent(storeName)}?device_id=${deviceId}`
+                        );
+
+                    } catch (error) {
+                        console.error("❌ Error in startNewOrder:", error);
+
+                        if (typeof showToast === 'function') {
+                            showToast('Restarting...', 'info', 'Please wait', 1500);
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+
+                        window.location.replace(
+                            `/KIOSK/Home/${encodeURIComponent(storeName)}?device_id=${deviceId}`
+                        );
+                    }
+                }
+
+                window.showLoginScreen = showLoginScreen;
+                window.closeLoginModal = closeLoginModal;
+                window.startNewOrder = startNewOrder;
+
+
+                // In your Home page initialization
+                window.addEventListener('DOMContentLoaded', () => {
+                    // Check if this is a fresh start (has refresh parameter)
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.has('refresh')) {
+                        // Ensure member info is cleared
+                        localStorage.removeItem('memberName');
+                        localStorage.removeItem('memberEmail');
+                        localStorage.removeItem('memberPhone');
+                        localStorage.removeItem('memberId');
+                        localStorage.removeItem('memberPoints');
+                        //sessionStorage.clear();
+
+                        // Hide member UI
+                        const memberDisplay = document.getElementById('memberInfoDisplay');
+                        if (memberDisplay) {
+                            memberDisplay.style.display = 'none';
+                        }
+
+                        console.log("✅ Fresh start - member data cleared");
+                    }
+                });
+
+
+
+
+                function showToast(message, type = 'info', title = '', duration = 4000) {
+                    const toast = document.getElementById('notificationToast');
+                    if (!toast) {
+                        console.error('Toast element not found');
+                        return;
+                    }
+
+                    // Set title and message
+                    const titleEl = toast.querySelector('.toast-title');
+                    const messageEl = toast.querySelector('.toast-message');
+
+                    if (titleEl) {
+                        if (title) {
+                            titleEl.textContent = title;
+                            titleEl.style.display = 'block';
+                        } else {
+                            titleEl.style.display = 'none';
+                        }
+                    }
+
+                    if (messageEl) {
+                        messageEl.textContent = message;
+                    }
+
+                    // Set type class
+                    toast.className = `notification-toast ${type} show`;
+
+                    // Auto-hide after duration
+                    setTimeout(() => {
+                        closeNotificationToast();
+                    }, duration);
+
+                    console.log(`📢 Toast shown: ${type} - ${message}`);
+                }
+
+                /**
+                 * Close toast notification
+                 */
+                function closeNotificationToast() {
+                    const toast = document.getElementById('notificationToast');
+                    if (!toast) return;
+
+                    toast.classList.add('hiding');
+
+                    setTimeout(() => {
+                        toast.classList.remove('show', 'hiding');
+                        toast.style.display = 'none';
+                    }, 300);
+                }
+
+
+                function showConfirm(message, title = 'Confirm Action', options = {}) {
+                    console.log('🔥 showConfirm CALLED', { message, title });
+                    return new Promise((resolve) => {
+                        const modal = document.getElementById('confirmModal');
+                        if (!modal) {
+                            console.error('Confirm modal not found');
+                            resolve(false);
+                            return;
+                        }
+
+                        const titleEl = document.getElementById('confirmModalTitle');
+                        const messageEl = document.getElementById('confirmModalMessage');
+                        const confirmBtn = document.getElementById('confirmOkBtn');
+                        const cancelBtn = document.getElementById('confirmCancelBtn');
+
+                        // Set content
+                        if (titleEl) titleEl.textContent = title;
+                        if (messageEl) messageEl.textContent = message;
+
+                        // Set button text
+                        if (confirmBtn) {
+                            confirmBtn.textContent = options.confirmText || 'Confirm';
+                            confirmBtn.className = `confirm-modal-btn confirm-btn ${options.danger ? 'danger' : ''}`;
+                        }
+                        if (cancelBtn) {
+                            cancelBtn.textContent = options.cancelText || 'Cancel';
+                        }
+
+                        // ✅ Clone buttons to strip ALL previously stacked listeners
+                        const freshConfirmBtn = confirmBtn.cloneNode(true);
+                        const freshCancelBtn = cancelBtn.cloneNode(true);
+                        confirmBtn.replaceWith(freshConfirmBtn);
+                        cancelBtn.replaceWith(freshCancelBtn);
+
+                        // Show modal
+                        modal.style.display = 'flex';
+                        setTimeout(() => modal.classList.add('active'), 10);
+                        document.body.style.overflow = 'hidden';
+
+                        // Handle confirm
+                        const handleConfirm = () => {
+                            closeConfirmModal();
+                            resolve(true);
+                            cleanup();
+                        };
+
+                        // Handle cancel
+                        const handleCancel = () => {
+                            closeConfirmModal();
+                            resolve(false);
+                            cleanup();
+                        };
+
+                        // Cleanup function
+                        const cleanup = () => {
+                            freshConfirmBtn.removeEventListener('click', handleConfirm);
+                            freshCancelBtn.removeEventListener('click', handleCancel);
+                            document.removeEventListener('keydown', handleEscape);
+                        };
+
+                        // Handle escape key
+                        const handleEscape = (e) => {
+                            if (e.key === 'Escape') {
+                                handleCancel();
+                            }
+                        };
+
+                        // Attach event listeners to the FRESH (clone) buttons
+                        freshConfirmBtn.addEventListener('click', handleConfirm);
+                        freshCancelBtn.addEventListener('click', handleCancel);
+                        document.addEventListener('keydown', handleEscape);
+
+                        console.log(`❓ Confirm dialog shown: ${title}`);
+                    });
+                }
+
+                function closeConfirmModal() {
+                    const modal = document.getElementById('confirmModal');
+                    if (!modal) return;
+
+                    modal.classList.remove('active');
+
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                        document.body.style.overflow = '';
+                    }, 300);
+                }
+
+                function showAlert(message, title = 'Notification', type = 'info') {
+                    return new Promise((resolve) => {
+                        const modal = document.getElementById('alertModal');
+                        if (!modal) {
+                            console.error('Alert modal not found');
+                            resolve();
+                            return;
+                        }
+
+                        const titleEl = document.getElementById('alertModalTitle');
+                        const messageEl = document.getElementById('alertModalMessage');
+                        const iconEl = document.getElementById('alertModalIcon');
+                        const okBtn = document.getElementById('alertOkBtn');
+
+                        // Set content
+                        if (titleEl) titleEl.textContent = title;
+                        if (messageEl) messageEl.textContent = message;
+
+                        // Set icon based on type
+                        if (iconEl) {
+                            iconEl.className = `alert-modal-icon ${type}`;
+                            iconEl.innerHTML = getAlertIcon(type);
+                        }
+
+                        // Show modal
+                        modal.style.display = 'flex';
+                        setTimeout(() => modal.classList.add('active'), 10);
+                        document.body.style.overflow = 'hidden';
+
+                        // Handle OK
+                        const handleOk = () => {
+                            closeAlertModal();
+                            resolve();
+                            cleanup();
+                        };
+
+                        // Cleanup function
+                        const cleanup = () => {
+                            okBtn?.removeEventListener('click', handleOk);
+                            document.removeEventListener('keydown', handleEnter);
+                        };
+
+                        // Handle enter key
+                        const handleEnter = (e) => {
+                            if (e.key === 'Enter') {
+                                handleOk();
+                            }
+                        };
+
+                        // Attach event listeners
+                        okBtn?.addEventListener('click', handleOk);
+                        document.addEventListener('keydown', handleEnter);
+
+                        console.log(`ℹ️ Alert shown: ${title}`);
+                    });
+                }
+
+                /**
+                 * Close alert modal
+                 */
+                function closeAlertModal() {
+                    const modal = document.getElementById('alertModal');
+                    if (!modal) return;
+
+                    modal.classList.remove('active');
+
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                        document.body.style.overflow = '';
+                    }, 300);
+                }
+
+                function getAlertIcon(type) {
+                    const icons = {
+                        success: '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>',
+                        error: '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>',
+                        warning: '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
+                        info: '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
+                    };
+
+                    return icons[type] || icons.info;
+                }
+
+
+                function showVoucherRemovalConfirm(voucherName) {
+                    return new Promise((resolve) => {
+                        const modal = document.getElementById('voucherRemovalModal');
+                        if (!modal) {
+                            console.error('Voucher removal modal not found');
+                            resolve(false);
+                            return;
+                        }
+
+                        const messageEl = document.getElementById('voucherRemovalMessage');
+                        const confirmBtn = document.getElementById('confirmVoucherRemoval');
+                        const cancelBtn = document.getElementById('cancelVoucherRemoval');
+
+                        // Set message
+                        if (messageEl) {
+                            messageEl.textContent = `Are you sure you want to remove "${voucherName}"? Your discount will be removed.`;
+                        }
+
+                        // Show modal
+                        modal.style.display = 'flex';
+                        setTimeout(() => modal.classList.add('active'), 10);
+                        document.body.style.overflow = 'hidden';
+
+                        // Handle confirm
+                        const handleConfirm = () => {
+                            modal.classList.remove('active');
+                            setTimeout(() => {
+                                modal.style.display = 'none';
+                                document.body.style.overflow = '';
+                            }, 300);
+                            resolve(true);
+                            cleanup();
+                        };
+
+                        // Handle cancel
+                        const handleCancel = () => {
+                            modal.classList.remove('active');
+                            setTimeout(() => {
+                                modal.style.display = 'none';
+                                document.body.style.overflow = '';
+                            }, 300);
+                            resolve(false);
+                            cleanup();
+                        };
+
+                        // Cleanup
+                        const cleanup = () => {
+                            confirmBtn?.removeEventListener('click', handleConfirm);
+                            cancelBtn?.removeEventListener('click', handleCancel);
+                        };
+
+                        confirmBtn?.addEventListener('click', handleConfirm);
+                        cancelBtn?.addEventListener('click', handleCancel);
+                    });
+                }
+
+
+                function showLogoutConfirm() {
+                    return new Promise((resolve) => {
+                        const modal = document.getElementById('logoutConfirmModal');
+                        if (!modal) {
+                            console.error('Logout confirm modal not found');
+                            resolve(false);
+                            return;
+                        }
+
+                        const confirmBtn = document.getElementById('confirmLogout');
+                        const cancelBtn = document.getElementById('cancelLogout');
+
+                        // Show modal
+                        modal.style.display = 'flex';
+                        setTimeout(() => modal.classList.add('active'), 10);
+                        document.body.style.overflow = 'hidden';
+
+                        // Handle confirm
+                        const handleConfirm = () => {
+                            modal.classList.remove('active');
+                            setTimeout(() => {
+                                modal.style.display = 'none';
+                                document.body.style.overflow = '';
+                            }, 300);
+                            resolve(true);
+                            cleanup();
+                        };
+
+                        // Handle cancel
+                        const handleCancel = () => {
+                            modal.classList.remove('active');
+                            setTimeout(() => {
+                                modal.style.display = 'none';
+                                document.body.style.overflow = '';
+                            }, 300);
+                            resolve(false);
+                            cleanup();
+                        };
+
+                        // Cleanup
+                        const cleanup = () => {
+                            confirmBtn?.removeEventListener('click', handleConfirm);
+                            cancelBtn?.removeEventListener('click', handleCancel);
+                        };
+
+                        confirmBtn?.addEventListener('click', handleConfirm);
+                        cancelBtn?.addEventListener('click', handleCancel);
+                    });
+                }
+
+                // ============================================
+                // EXPORT FUNCTIONS
+                // ============================================
+
+                window.showToast = showToast;
+                window.closeNotificationToast = closeNotificationToast;
+                window.showConfirm = showConfirm;
+                window.showAlert = showAlert;
+                window.showVoucherRemovalConfirm = showVoucherRemovalConfirm;
+                window.showLogoutConfirm = showLogoutConfirm;
+
+
+
+
+
+                (function() {
+                    'use strict';
+
+                    let lastScroll = 0;
+
+                    function ultraFixCart() {
+                        const cartItems = document.getElementById('cartItems');
+                        if (!cartItems) return;
+
+                        // Save scroll
+                        lastScroll = cartItems.scrollTop;
+
+                        // Apply styles (your existing code)
+                        const cartModal = document.getElementById('cartModal');
+                        if (cartModal) {
+                            cartModal.style.setProperty('display', 'flex', 'important');
+                            cartModal.style.setProperty('flex-direction', 'column', 'important');
+                            cartModal.style.setProperty('overflow', 'hidden', 'important');
+                        }
+
+                        const cartContent = cartModal?.querySelector('.cart-content');
+                        if (cartContent) {
+                            cartContent.style.setProperty('flex', '1 1 auto', 'important');
+                            cartContent.style.setProperty('min-height', '0', 'important');
+                            cartContent.style.setProperty('display', 'flex', 'important');
+                            cartContent.style.setProperty('flex-direction', 'column', 'important');
+                            cartContent.style.setProperty('overflow', 'hidden', 'important');
+                        }
+
+                        cartItems.style.setProperty('flex', '1 1 auto', 'important');
+                        cartItems.style.setProperty('min-height', '0', 'important');
+                        cartItems.style.setProperty('overflow-y', 'auto', 'important');
+                        cartItems.style.setProperty('overflow-x', 'hidden', 'important');
+                        cartItems.style.setProperty('display', 'flex', 'important');
+                        cartItems.style.setProperty('flex-direction', 'column', 'important');
+                        cartItems.style.setProperty('gap', '12px', 'important');
+                        cartItems.style.setProperty('padding', '20px', 'important');
+                        cartItems.style.setProperty('grid-template-columns', 'none', 'important');
+
+                        const cards = document.querySelectorAll('#cartItems .cart-item-card');
+                        cards.forEach((card) => {
+                            card.style.setProperty('margin', '0', 'important');
+                            card.style.setProperty('isolation', 'isolate', 'important');
+                            card.style.setProperty('position', 'relative', 'important');
+                        });
+
+                        const summary = cartModal?.querySelector('.cart-summary');
+                        if (summary) {
+                            summary.style.setProperty('flex', '0 0 auto', 'important');
+                            summary.style.setProperty('flex-shrink', '0', 'important');
+                        }
+
+                        // Restore scroll
+                        if (lastScroll > 0) {
+                            cartItems.scrollTop = lastScroll;
+                        }
+                    }
+
+                    ultraFixCart();
+                    let interval = setInterval(ultraFixCart, 500); // Run every 500ms
+
+                    window.ultraFixCart = ultraFixCart;
+                })();
+
+                document.querySelector('.close-btn').addEventListener('click', function (e) {
+                  const btn = this;
+                  const circle = document.createElement('span');
+                  const diameter = Math.max(btn.clientWidth, btn.clientHeight);
+                  const radius = diameter / 2;
+                  const rect = btn.getBoundingClientRect();
+
+                  circle.classList.add('ripple');
+                  circle.style.width  = circle.style.height = `${diameter}px`;
+                  circle.style.left   = `${e.clientX - rect.left - radius}px`;
+                  circle.style.top    = `${e.clientY - rect.top  - radius}px`;
+
+                  btn.querySelector('.ripple')?.remove();
+                  btn.appendChild(circle);
+                });
+    </script>
+</body>
+</html>

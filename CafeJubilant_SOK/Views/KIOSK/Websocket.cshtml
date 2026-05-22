@@ -1,0 +1,213 @@
+﻿@{
+    ViewData["Title"] = "WebSocket Test";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .log {
+            background: #f0f0f0;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+            button:hover {
+                background: #0056b3;
+            }
+
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .connected {
+            color: green;
+            font-weight: bold;
+        }
+
+        .disconnected {
+            color: red;
+            font-weight: bold;
+        }
+
+        .message {
+            color: blue;
+        }
+
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 WebSocket Connection Test</h1>
+
+        <div style="margin: 20px 0;">
+            <label>Device ID: <input type="text" id="deviceId" value="POS001"></label>
+            <label>
+                Type:
+                <select id="deviceType">
+                    <option value="pos">POS</option>
+                    <option value="sok">SOK</option>
+                </select>
+            </label>
+        </div>
+
+        <div style="margin: 10px 0;">
+            <button onclick="connect()">🔗 Connect</button>
+            <button onclick="disconnect()">❌ Disconnect</button>
+            <button onclick="sendPing()">📡 Send Ping</button>
+            <button onclick="sendCallQueue()">📢 Call Queue A123</button>
+            <button onclick="clearLog()">🗑️ Clear Log</button>
+        </div>
+
+        <div style="margin: 15px 0;">
+            <strong>Status:</strong> <span id="status" class="disconnected">Disconnected</span>
+        </div>
+
+        <h3>📋 Connection Log:</h3>
+        <div id="log" class="log">Waiting for connection...</div>
+    </div>
+
+    <script>
+        let ws = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const className = type === 'connected' ? 'connected' :
+                type === 'disconnected' ? 'disconnected' :
+                    type === 'message' ? 'message' :
+                        type === 'error' ? 'error' : '';
+            logDiv.innerHTML += `<div class="${className}">[${time}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('⚠️ Already connected!', 'error');
+                return;
+            }
+
+            const deviceId = document.getElementById('deviceId').value;
+            const deviceType = document.getElementById('deviceType').value;
+
+            // Use wss:// for https, ws:// for http
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const url = `${protocol}//${window.location.host}/ws/queue?deviceId=${deviceId}&type=${deviceType}`;
+
+            log(`🔄 Connecting to ${url}...`);
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                log('✅ Connected successfully!', 'connected');
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'connected';
+            };
+
+            ws.onmessage = (event) => {
+                log(`📨 Received: ${event.data}`, 'message');
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('Parsed message:', data);
+                } catch (e) {
+                    console.log('Raw message:', event.data);
+                }
+            };
+
+            ws.onerror = (error) => {
+                log('❌ WebSocket error occurred', 'error');
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = (event) => {
+                log(`🔌 Connection closed (Code: ${event.code}, Reason: ${event.reason || 'None'})`, 'disconnected');
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('status').className = 'disconnected';
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+                log('👋 Disconnected by user');
+            } else {
+                log('⚠️ Not connected', 'error');
+            }
+        }
+
+        function sendPing() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ Not connected! Click Connect first.', 'error');
+                return;
+            }
+
+            const message = {
+                action: 'ping',
+                targetDeviceId: 'SOK001',
+                timestamp: new Date().toISOString()
+            };
+
+            ws.send(JSON.stringify(message));
+            log(`📤 Sent: ${JSON.stringify(message)}`);
+        }
+
+        function sendCallQueue() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ Not connected! Click Connect first.', 'error');
+                return;
+            }
+
+            const message = {
+                action: 'call_queue',
+                targetDeviceId: 'SOK001',
+                queueNumber: 'A123',
+                counter: 'Counter 1',
+                timestamp: new Date().toISOString()
+            };
+
+            ws.send(JSON.stringify(message));
+            log(`📤 Sent: ${JSON.stringify(message)}`);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = 'Log cleared...';
+        }
+    </script>
+</body>
+</html>

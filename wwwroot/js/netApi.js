@@ -1,0 +1,1191 @@
+﻿import dayjs from "https://esm.sh/dayjs";
+import { useCache } from "../stores/cache-store.js";
+import { useOrderStore, useOrder } from "../stores/order-store.js";
+import { getNowInAPIFormat, getCookie, setCookie, same } from '../utils/common.js';
+
+const getApiBase = () => {
+    return window.location.origin + '/API';
+};
+
+const API_BASE = getApiBase();
+
+console.log('🔧 Fixed API Base URL:', API_BASE);
+
+// ─── FIX 2: Module-level translation cache keyed by language name ───────────
+// Prevents GetMenuCategoryItemTranslations from being called more than once
+// per language per session regardless of how many callers invoke it.
+const translationsCache = new Map();
+
+// ─── FIX 4: Promise-ref pattern for getLangs ────────────────────────────────
+// Replaces the boolean `langsLoaded` flag. All concurrent callers share the
+// same in-flight Promise so only one network request is ever made.
+let langsPromise = null;
+
+// Enhanced fetch with better error handling
+async function apiFetch(endpoint, options = {}) {
+    try {
+        const url = `${API_BASE}${endpoint}`;
+        console.log(`🔄 API Call: ${url}`);
+
+        const response = await fetch(url, {
+            credentials: 'include',
+            ...options
+        });
+
+        console.log(`📡 Response Status: ${response.status} for ${endpoint}`);
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error(`🚨 API Error (${endpoint}):`, error);
+        throw error;
+    }
+}
+
+// Function to extract clean store name from URL
+function getCleanStoreName() {
+    const currentPath = window.location.pathname;
+    console.log('🔍 Analyzing URL for store name:', currentPath);
+
+    const match = currentPath.match(/\/(?:kiosk|KIOSK)\/home\/([^\/]+)/i);
+    if (match && match[1]) {
+        let storeName = match[1];
+
+        // Decode once
+        storeName = decodeURIComponent(storeName);
+
+        // Handle double-encoded case
+        if (storeName.includes('%')) {
+            try {
+                storeName = decodeURIComponent(storeName);
+                console.log('⚠️ Double-encoded URL detected and fixed');
+            } catch (e) {
+                console.warn('⚠️ Could not double-decode, using single decode');
+            }
+        }
+
+        console.log('✅ Store name extracted from path (decoded):', storeName);
+        return storeName;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const storeFromQuery = urlParams.get('store');
+    if (storeFromQuery) {
+        console.log('✅ Store name from query parameter:', storeFromQuery);
+        return storeFromQuery;
+    }
+
+    const storedStore = localStorage.getItem('storeName');
+    if (storedStore) {
+        console.log('✅ Store name from localStorage:', storedStore);
+        return storedStore;
+    }
+
+    throw new Error(`Cannot determine store name from URL: ${window.location.href}`);
+}
+
+function fullyDecodeURIComponent(str) {
+    let decoded = str;
+    let prevDecoded = '';
+    while (decoded !== prevDecoded) {
+        prevDecoded = decoded;
+        try {
+            decoded = decodeURIComponent(decoded);
+        } catch (e) {
+            break;
+        }
+    }
+    return decoded;
+}
+
+function getCleanStoreNameRobust() {
+    const currentPath = window.location.pathname;
+    console.log('🔍 Analyzing URL for store name:', currentPath);
+
+    const match = currentPath.match(/\/(?:kiosk|KIOSK)\/home\/([^\/]+)/i);
+    if (match && match[1]) {
+        const storeName = fullyDecodeURIComponent(match[1]);
+        console.log('✅ Store name extracted from path (fully decoded):', storeName);
+        return storeName;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const storeFromQuery = urlParams.get('store');
+    if (storeFromQuery) return storeFromQuery;
+
+    const storedStore = localStorage.getItem('storeName');
+    if (storedStore) return storedStore;
+
+    throw new Error(`Cannot determine store name from URL: ${window.location.href}`);
+}
+
+// Fetch and cache store details
+export async function fetchStoreDetails(retryCount = 0) {
+    const MAX_RETRIES = 2;
+    const storeName = getCleanStoreName();
+
+    try {
+        console.log('🛍️ Fetching store details for:', storeName);
+
+        const apiUrl = `/GetStore?storename=${encodeURIComponent(storeName)}`;
+        console.log('🔄 API Call:', `${API_BASE}${apiUrl}`);
+
+        const response = await apiFetch(apiUrl);   // assuming apiFetch returns the full parsed body
+
+        // --- More flexible response parsing (handle different possible shapes) ---
+        let store = null;
+
+        if (response?.data?.[0]?.output?.[0]) {
+            store = response.data[0].output[0];
+        } else if (response?.data?.[0]) {
+            store = response.data[0];
+        } else if (response?.store || response?.data) {
+            store = response.store || response.data;
+        } else if (Array.isArray(response) && response.length > 0) {
+            store = response[0];
+        }
+
+        if (!store || (typeof store === 'object' && Object.keys(store).length === 0)) {
+            console.warn("⚠️ Store data returned but appears empty");
+            throw new Error(`No valid store data found for "${storeName}"`);
+        }
+
+        // Cache it
+        localStorage.setItem("storename", storeName);
+        sessionStorage.setItem("store", JSON.stringify(store));
+        useCache().setStore(store);
+        useCache().setDate(getNowInAPIFormat());
+
+        console.log("✅ Store loaded and cached successfully:", store.storename || store.name || store.StoreName || "Unknown");
+
+        return store;
+
+    } catch (err) {
+        console.error(`🚨 Failed to fetch store details (attempt ${retryCount + 1}):`, err);
+
+        // Retry logic for transient errors (including 500)
+        if (retryCount < MAX_RETRIES) {
+            const delay = 800 * (retryCount + 1);   // 800ms, 1600ms
+            console.log(`🔁 Retrying store fetch in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return fetchStoreDetails(retryCount + 1);
+        }
+
+        // Final failure
+        const errorMsg = err.message || err.status
+            ? `HTTP ${err.status || 'Unknown'} - ${err.message || 'Server error'}`
+            : 'Unknown error while loading store';
+
+        console.error('❌ All store fetch retries failed:', errorMsg);
+
+        // Optional: Show user-friendly modal
+        showErrorModal?.(
+            'Cannot Load Store',
+            `Failed to load store "${storeName}". Please check if the backend is running and the store exists.`,
+            errorMsg
+        );
+
+        throw new Error(`Store load failed: ${errorMsg}`);
+    }
+}
+
+export async function getCashReconStatus() {
+    try {
+        const data = await apiFetch('/GetCashReconStatus');
+        console.log('✅ CashReconStatus loaded:', data);
+        return data;
+    } catch (err) {
+        console.error('🚨 Failed to fetch CashReconStatus:', err);
+        throw err;
+    }
+}
+
+export async function getMenuItems(forceRefresh = false) {
+    try {
+        if (!forceRefresh) {
+            const cached = useCache().menuItems;
+            if (cached?.length) return cached;
+
+            const sessionCached = sessionStorage.getItem('MenuItems');
+            if (sessionCached) {
+                const parsed = JSON.parse(sessionCached);
+                if (parsed?.length) {
+                    useCache().setMenuItems(parsed);
+                    return parsed;
+                }
+            }
+        }
+
+        const timestamp = new Date().getTime();
+        const data = await apiFetch(`/GetPOSMenuButton?_=${timestamp}`);
+
+        // Fix: Support the 'category' key from your specific JSON structure
+        const root = data?.data?.[0] || {};
+        const MenuItems = root.category || root.output || [];
+
+        console.log(`✅ getMenuItems: Found ${MenuItems.length} sections`);
+
+        sessionStorage.setItem("MenuItems", JSON.stringify(MenuItems));
+        useCache().setMenuItems(MenuItems);
+
+        return MenuItems;
+    } catch (err) {
+        console.error('🚨 Failed to fetch menu items:', err);
+        return [];
+    }
+}
+
+//export async function getMenuItems(forceRefresh = false) {
+//    try {
+//        // ✅ Serve from memory cache when caller does not require a fresh fetch
+//        if (!forceRefresh) {
+//            const cached = useCache().menuItems;
+//            if (cached?.length) {
+//                console.log(`✅ getMenuItems: returning ${cached.length} sections from cache`);
+//                return cached;
+//            }
+
+//            // Fall back to sessionStorage if memory cache is cold
+//            const sessionCached = sessionStorage.getItem('MenuItems');
+//            if (sessionCached) {
+//                try {
+//                    const parsed = JSON.parse(sessionCached);
+//                    if (parsed?.length) {
+//                        console.log(`✅ getMenuItems: returning ${parsed.length} sections from sessionStorage`);
+//                        useCache().setMenuItems(parsed);
+//                        return parsed;
+//                    }
+//                } catch (e) {
+//                    console.warn('⚠️ Could not parse sessionStorage MenuItems:', e);
+//                }
+//            }
+//        }
+
+//        //// ✅ Only reaches here when forceRefresh=true or both caches are empty
+//        //sessionStorage.removeItem('MenuItems');
+//        const timestamp = new Date().getTime();
+//        console.log(`🔄 Fetching menu with cache-bust: ${timestamp}`);
+
+//        const data = await apiFetch(`/GetPOSMenuButton?_=${timestamp}`);
+//        const MenuItems = data?.data?.[0]?.output ?? [];
+
+//        console.log(`✅ API returned ${MenuItems.length} sections`);
+
+//        const firstItemWithImage = MenuItems
+//            .flatMap(section => section.items || [])
+//            .find(item => item.tqr_image_url);
+//        if (firstItemWithImage) {
+//            console.log('📸 First image from API:', firstItemWithImage.tqr_image_url);
+//        }
+
+//        sessionStorage.setItem("MenuItems", JSON.stringify(MenuItems));
+//        useCache().setMenuItems(MenuItems);
+
+//        return MenuItems;
+
+//    } catch (err) {
+//        console.error('🚨 Failed to fetch menu items:', err);
+//        return null;
+//    }
+//}
+
+
+
+// Fetch and cache full item list
+export async function getItems(params = {}) {
+    try {
+        const data = await apiFetch('/GetPosFullItemList');
+
+        const itemsArray = data?.data?.[0]?.output || [];
+        sessionStorage.setItem("FullItems", JSON.stringify(itemsArray));
+        sessionStorage.setItem("GST", JSON.stringify(itemsArray[0]?.tax_value || 0));
+
+        const gstElement = document.getElementById("gst-rate");
+        if (gstElement) {
+            gstElement.textContent = JSON.stringify(itemsArray[0]?.tax_value || 0);
+        }
+
+        useCache().setItems(itemsArray);
+        console.log("✅ Items loaded and cached (array only):", itemsArray);
+        return itemsArray;
+    } catch (err) {
+        console.error('🚨 Failed to fetch items:', err);
+        return null;
+    }
+}
+
+
+export async function getPOSMenuAvailableItems(params = {}) {
+    try {
+        const data = await apiFetch('/checkPOSMenuStocks');
+        let itemsArray = [];
+
+        if (Array.isArray(data?.output)) {
+            itemsArray = data.output;
+        } else if (data?.data?.[0]?.output) {
+            const raw = data.data[0].output;
+            try {
+                itemsArray = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            } catch (parseErr) {
+                console.error('🚨 Failed to parse output JSON string:', parseErr);
+                itemsArray = [];
+            }
+        } else if (Array.isArray(data)) {
+            itemsArray = data;
+        } else {
+            console.warn('⚠️ Unrecognized API response format:', data);
+        }
+
+        sessionStorage.setItem("AvailablePOSMenuItems", JSON.stringify(itemsArray));
+
+        // ← ADD THIS: push into cache so getStockStatus can read it
+        const cache = useCache();
+        if (typeof cache.setStocks === 'function') {
+            cache.setStocks(itemsArray);
+        } else {
+            cache.stocks = itemsArray; // fallback if no setter
+        }
+
+        console.log("✅ Available POS Menu items loaded and cached:", itemsArray.length, 'items');
+        return itemsArray;
+    } catch (err) {
+        console.error('🚨 Failed to fetch items:', err);
+        return null;
+    }
+}
+
+// Fetch and cache add-ons
+export async function getAddons(params = {}) {
+    try {
+        const data = await apiFetch('/GetStoreAddonDtls');
+
+        const addonList = data?.data?.[0]?.output || [];
+        sessionStorage.setItem("AddOnItems", JSON.stringify(addonList));
+        useCache().setAddons(addonList);
+
+        console.log("✅ Addons loaded and cached:", addonList);
+        return addonList;
+
+    } catch (err) {
+        console.error('🚨 Failed to fetch addons:', err);
+        return null;
+    }
+}
+
+// Fetch and cache item remarks
+export async function getItemRemarks(params = {}) {
+    const existing = window.apiManager?.loadedData?.get('ItemRemarks')
+        ?? window.apiManager?.loadedData?.get('itemRemarks');
+    if (existing?.length > 0 && window.__isWarmBoot) {
+        window.remarksCache = existing;
+        console.log("⚡ ItemRemarks restored from warm-boot cache:", existing.length, "items");
+        return existing;
+    }
+
+    try {
+        const data = await apiFetch('/getItemRemarks');
+        const itemRemarks = data?.output || [];
+
+        sessionStorage.setItem("ItemRemarks", JSON.stringify(itemRemarks));
+        window.remarksCache = itemRemarks;
+
+        if (typeof useCache === 'function') {
+            useCache().setItemRemarks?.(itemRemarks);
+        }
+
+        console.log("✅ ItemRemarks loaded and cached:", itemRemarks.length, "items");
+        return itemRemarks;
+
+    } catch (err) {
+        console.error('🚨 Failed to fetch ItemRemarks:', err);
+
+        const cached = sessionStorage.getItem("ItemRemarks");
+        if (cached) {
+            try {
+                const parsed = JSON.parse(cached);
+                window.remarksCache = parsed;
+                console.log("🔄 Using cached remarks from sessionStorage");
+                return parsed;
+            } catch (e) {
+                console.error("❌ Failed to parse cached remarks:", e);
+            }
+        }
+
+        return [];
+    }
+}
+
+export async function getItemRemarksByType(params = {}) {
+    try {
+        const data = await apiFetch('/GetRemarksByType');
+        const itemRemarks = data?.output || [];
+
+        sessionStorage.setItem("AllRemarks", JSON.stringify(itemRemarks));
+        window.remarksCache = itemRemarks;
+
+        if (typeof useCache === 'function') {
+            useCache().setAllRemarks?.(itemRemarks);
+        }
+
+        console.log("✅ ItemRemarks loaded and cached:", itemRemarks.length, "items");
+        return itemRemarks;
+
+    } catch (err) {
+        console.error('🚨 Failed to fetch ItemRemarks:', err);
+
+        const cached = sessionStorage.getItem("AllRemarks");
+        if (cached) {
+            try {
+                const parsed = JSON.parse(cached);
+                window.remarksCache = parsed;
+                console.log("🔄 Using cached all remarks from sessionStorage");
+                return parsed;
+            } catch (e) {
+                console.error("❌ Failed to parse cached all remarks:", e);
+            }
+        }
+
+        return [];
+    }
+}
+
+export async function getPromos(params = {}) {
+    try {
+        const { sessionid, store, setPromos } = useCache();
+        const data = await apiFetch('/getPromos');
+
+        const promoItems = data?.output || [];
+        setPromos(promoItems);
+        sessionStorage.setItem("PromotionItems", JSON.stringify(promoItems));
+        console.log("✅ PromotionItems loaded and cached:", promoItems);
+        return promoItems;
+
+    } catch (err) {
+        console.error('🚨 Failed to fetch PromotionItems:', err);
+        return null;
+    }
+}
+
+export async function getSvcs(params = {}) {
+    try {
+        const { setSvcs } = useCache();
+        const data = await apiFetch('/getSvcs');
+
+        const svcs = data?.data || [];
+        setSvcs(svcs);
+        sessionStorage.setItem("ServiceCharges", JSON.stringify(svcs));
+
+        console.log("✅ serviceCharges loaded and cached:", svcs);
+        return svcs;
+    } catch (err) {
+        console.error('🚨 Failed to fetch service charges:', err);
+        return null;
+    }
+}
+
+/**
+ * Fetches system settings from the server and updates 
+ * both the app cache and sessionStorage.
+ */
+export async function getSystemSettings(params = {}) {
+    try {
+        const { setSystemSettings } = useCache();
+        const response = await apiFetch('/getSystemSettting');
+
+        // Extracting data from the API response structure
+        const systemSetting = response?.data || [];
+
+        // Sync to state management
+        if (setSystemSettings) {
+            setSystemSettings(systemSetting);
+        }
+
+        // Persistent storage for helper functions (like takeaway charge builders)
+        sessionStorage.setItem("SystemSettings", JSON.stringify(systemSetting));
+
+        console.log("✅ systemSetting loaded and cached:", systemSetting);
+        return systemSetting;
+
+    } catch (err) {
+        console.error('🚨 Failed to fetch system settings:', err);
+
+        // Fallback to existing cache if the network fails
+        const cached = sessionStorage.getItem("SystemSettings");
+        return cached ? JSON.parse(cached) : null;
+    }
+}
+// ─── FIX 4: getLangs — Promise-ref pattern ───────────────────────────────────
+// All concurrent callers share the same in-flight Promise.
+// On success the result is permanently cached (langsPromise stays set).
+// On error langsPromise is reset to null so a genuine retry is possible,
+// but a rapid second call during the same failure won't fire a second request.
+export async function getLangs(params = {}) {
+    if (langsPromise) {
+        console.log("⚠️ getLangs already called, awaiting shared promise");
+        return langsPromise;
+    }
+
+    langsPromise = (async () => {
+        console.log("🔥 getLangs() triggered once");
+
+        try {
+            sessionStorage.setItem("selectedLang", "English");
+            const { setLangs } = useCache();
+
+            const data = await apiFetch('/getLangs');
+            const svcsLangs = Array.isArray(data?.data) ? data.data : [];
+
+            const languageDiv = document.getElementById("languageOptions");
+            if (languageDiv) {
+                const languageOptionsHTML = svcsLangs.map(lang => {
+                    const langCode = generateLanguageCode(lang.language_name);
+                    const isDefault = lang.is_default === 1 ? 'active' : '';
+                    return `
+                      <div class="language-option ${isDefault}" data-lang="${langCode}" ids="${lang.language_name}" onclick="selectLanguage('${langCode}', '${lang.language_name}')">
+                          <option value="${lang.language_name}">${lang.language_name}</option>
+                      </div>`;
+                }).join('');
+                languageDiv.innerHTML = languageOptionsHTML;
+            }
+
+            setLangs(svcsLangs);
+            localStorage.setItem("serviceLanguages", JSON.stringify(svcsLangs));
+
+            const defaultLang = svcsLangs.find(lang => lang.is_default === 1);
+
+            if (defaultLang) {
+                const defaultCode = generateLanguageCode(defaultLang.language_name);
+                const defaultName = defaultLang.language_name;
+                const savedLang = localStorage.getItem('currentLanguage');
+
+                if (savedLang) {
+                    try {
+                        const { code, name } = JSON.parse(savedLang);
+                        // ✅ FIX 1: selectLanguage() already calls getMenuCategoryItemTranslations()
+                        // internally, so we must NOT call it again here.
+                        selectLanguage(code, name);
+                        console.log("✅ Loaded saved language:", name);
+                    } catch (err) {
+                        console.error("❌ Failed to parse saved language, using default");
+                        selectLanguage(defaultCode, defaultName);
+                    }
+                } else {
+                    // ✅ FIX 1: only selectLanguage() — no extra translation call
+                    selectLanguage(defaultCode, defaultName);
+                    console.log("✅ Using default language:", defaultName);
+                }
+            }
+
+            console.log("✅ Languages loaded from API:", svcsLangs);
+            return svcsLangs;
+
+        } catch (err) {
+            console.error("🚨 Failed to fetch languages:", err);
+            // ✅ FIX 4: reset so a genuine retry is allowed after an actual failure,
+            // but concurrent callers during the same request are not affected.
+            langsPromise = null;
+            throw err;
+        }
+    })();
+
+    return langsPromise;
+}
+
+// ─── FIX 1 + 2: selectLanguage — single translation call, no duplicate ───────
+function selectLanguage(code, name) {
+    console.log("Selecting language:", code, name);
+
+    localStorage.setItem('currentLanguage', JSON.stringify({ code, name }));
+
+    document.querySelectorAll('.language-option').forEach(opt => {
+        opt.classList.remove('active');
+    });
+    document.querySelector(`[data-lang="${code}"]`)?.classList.add('active');
+
+    sessionStorage.setItem("selectedLang", name);
+
+    // ✅ This is the ONLY place getMenuCategoryItemTranslations is called for
+    // language selection. getLangs() must NOT call it again after selectLanguage().
+    if (name) {
+        getMenuCategoryItemTranslations(name);
+    }
+}
+
+export const checkStocks = async (params) => {
+    params = params || {};
+    const { setStocks } = useCache();
+    const check = params.info?.check !== undefined ? params.info.check : true;
+    const sales_dtls = params.info?.sales_dtls || [];
+
+    const data = await apiFetch('/checkStocks');
+
+    const stocks = Array.isArray(data?.data?.[0]?.output)
+        ? data.data[0].output
+        : [];
+
+    let valid = true;
+    let unavailableItems = [];
+
+    if (stocks.length && check) {
+        const orderItemsWithQty = [];
+        sales_dtls.forEach((item) => {
+            const existingItem = orderItemsWithQty.find((collapsed) =>
+                collapsed.item_name?.toLowerCase() === item.item_name?.toLowerCase()
+            );
+            if (existingItem) {
+                existingItem.qty = parseFloat(existingItem.qty) + parseFloat(item.qty);
+            } else {
+                orderItemsWithQty.push({
+                    item_name: item.item_name,
+                    item_desc: item.item_desc,
+                    item_category: item.item_category,
+                    qty: item.qty,
+                });
+            }
+        });
+
+        orderItemsWithQty.forEach((item) => {
+            const stock = stocks.find(
+                (s) =>
+                    s.avl_type?.toLowerCase() === "c" &&
+                    s.item_category?.toLowerCase() === item.item_category?.toLowerCase()
+            );
+            if (stock) {
+                if (bool(stock.is_soldout)) {
+                    valid = false;
+                    unavailableItems.push({
+                        item_name: item.item_name,
+                        item_desc: item.item_desc,
+                        bal_qty: 0,
+                        is_soldout: true,
+                    });
+                } else if (
+                    bool(stock.is_avl_limit_check) &&
+                    parseFloat(item.qty) > parseFloat(stock.bal_qty)
+                ) {
+                    valid = false;
+                    unavailableItems.push({
+                        item_name: item.item_name,
+                        item_desc: item.item_desc,
+                        bal_qty: stock.bal_qty,
+                        is_avl_limit_check: true,
+                    });
+                }
+            }
+        });
+    }
+
+    setStocks(stocks);
+    sessionStorage.setItem("stocks", JSON.stringify(stocks));
+    return { stocks, valid, unavailableItems };
+};
+
+// ─── FIX 2: getMenuCategoryItemTranslations — cache guard by language ─────────
+// A module-level Map means any second (or third) call for the same language
+// returns the already-fetched result immediately without hitting the network.
+export const getMenuCategoryItemTranslations = async (languageName) => {
+    const { setMenuCategoryItemTranslations } = useCache();
+
+    const langName = typeof languageName === 'string'
+        ? languageName
+        : languageName?.info?.language_name;
+
+    if (!langName) {
+        console.error("❌ No language name provided for translations");
+        return { translations: [], map: {} };
+    }
+
+    // ✅ Return cached result if this language was already fetched
+    if (translationsCache.has(langName)) {
+        console.log(`✅ Translations cache hit for: ${langName}`);
+        return translationsCache.get(langName);
+    }
+
+    let translations = [];
+    let map = {};
+
+    try {
+        const data = await apiFetch(`/GetMenuCategoryItemTranslations?languageName=${encodeURIComponent(langName)}`);
+
+        console.log("Translation API response:", data);
+
+        if (data) {
+            translations = data?.data || [];
+        }
+
+        sessionStorage.setItem("MenuCategoryItemTranslation", JSON.stringify(translations));
+        setMenuCategoryItemTranslations(translations);
+
+        translations.forEach((row) => {
+            if (row?.item_no && row?.item_name_lang) {
+                map[row.item_no] = row.item_name_lang;
+            }
+            if (row?.category_code && row?.category_name_lang) {
+                map[row.category_code] = row.category_name_lang;
+            }
+        });
+
+        console.log("✅ Translations loaded for language:", langName, translations.length, "items");
+
+    } catch (err) {
+        console.error("⚠️ Exception fetching translations", { languageName: langName, error: err });
+    }
+
+    const result = { translations, map };
+
+    // ✅ Store in module cache so any future call returns immediately
+    translationsCache.set(langName, result);
+
+    return result;
+};
+
+function clone(obj) {
+    if (obj === undefined || obj === null) return obj;
+    return JSON.parse(JSON.stringify(obj));
+}
+
+export async function getShift(params = {}) {
+    try {
+        const data = await apiFetch('/GetPosShift');
+        console.log("getShift Data", data);
+
+        const shift = data?.data?.[0]?.default_shift || null;
+
+        if (shift) {
+            useCache().setShift(shift);
+            console.log("✅ Shift loaded and cached:", shift);
+        } else {
+            console.warn("⚠️ No valid shift data found in response");
+        }
+
+        return shift;
+
+    } catch (err) {
+        console.error("🚨 Failed to fetch Shift:", err);
+        return null;
+    }
+}
+
+export async function GetDeviceSession(params = {}) {
+    try {
+        const data = await apiFetch('/GetDeviceSession');
+
+        const getDeviceSession = data?.data?.[0]?.output || [];
+        useCache().setSessionid(getDeviceSession);
+
+        console.log("✅ Device session loaded and cached:", getDeviceSession);
+        return getDeviceSession;
+
+    } catch (err) {
+        console.error('🚨 Failed to fetch Device Session:', err);
+        return null;
+    }
+}
+
+
+export async function postOrder(params) {
+    // 1. Capture the "Now" constant at the very top to lock the time for the entire request
+    const now = getNowInAPIFormat();
+
+    console.log('postOrder started', { now, params });
+
+    const { sessionid, store, register, date, svcs } = useCache();
+    console.log('Cache data retrieved:', {
+        sessionid,
+        storeName: store?.store_name,
+        registerName: register?.register_name,
+        date,
+        svcsCount: svcs?.length
+    });
+
+    // Step 1: Get current order
+    let { order } = useOrder();
+    if (params?.info?.order) order = params.info.order;
+    order = clone(order);
+
+    // Step 2: Sync ALL item dates to the 'now' variable (Forces same time as Header)
+    order.sales_dtls = (order.sales_dtls || []).map(item => ({
+        ...item,
+        c_userid: 'WEBORDER',
+        m_userid: 'WEBORDER',
+        c_date: now,           // Forced to match 'now'
+        m_date: now,           // Forced to match 'now'
+        order_datetime: now    // Forced to match 'now'
+    }));
+
+    // Step 3: Determine action and sync Header dates
+    let action = order?.sales_no ? 'update' : 'create';
+
+    order.c_date = now;
+    order.m_date = now;
+    if (!order.sales_no) {
+        order.doc_date = now; // Uses the same 'now' instead of calling the function again
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Step 4: Run all independent network calls IN PARALLEL
+    // ─────────────────────────────────────────────────────────────────────────
+    const ensureSession = async () => {
+        try {
+            await apiFetch('/GetDeviceSession');
+        } catch (err) {
+            console.error('Failed to refresh device session:', err);
+            throw new Error('Session refresh failed — cannot post order');
+        }
+    };
+
+    const sessionRefreshNeeded = !getCookie('token');
+    const sessionRefreshPromise = sessionRefreshNeeded ? ensureSession() : Promise.resolve();
+
+    const [stockResult, shiftResult] = await Promise.all([
+        checkStocks({ info: { sales_dtls: order?.sales_dtls } }),
+        getShift(),
+        sessionRefreshPromise
+    ]);
+
+    const { valid, unavailableItems } = stockResult;
+    if (!valid) {
+        console.error('Stock validation failed', unavailableItems);
+        return { success: false, response: unavailableItems };
+    }
+
+    let token = getCookie('token');
+    let tryCount = parseInt(getCookie('try-count') || 0);
+    if (!token) {
+        console.error('Still no token after session refresh — aborting postOrder');
+        return { success: false, response: null, error: 'Unable to obtain session token' };
+    }
+
+    const shift = shiftResult || 'SHIFT1';
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Step 5: Prepare service details
+    // ─────────────────────────────────────────────────────────────────────────
+    const sales_service_dtls = [];
+    const mainService = svcs?.find(s => s.service_type === order?.service_type);
+    if (mainService) {
+        const svc = clone(mainService);
+        delete svc.comp_code;
+        svc.sales_amt = order?.sub_total || 0;
+        svc.service_amt = (order.sales_dtls || [])
+            .filter(i => i.take_away_item !== 'Y')
+            .reduce((sum, i) => sum + parseFloat(i.svc_amt || 0), 0);
+        sales_service_dtls.push(svc);
+    }
+
+    const takeAwayItems = order.sales_dtls.filter(i => i.take_away_item === 'Y');
+    if (takeAwayItems.length > 0) {
+        const takeSvc = svcs?.find(s => s.service_type === 'T');
+        if (takeSvc) {
+            const ta = clone(takeSvc);
+            delete ta.comp_code;
+            ta.sales_amt = order?.sub_total || 0;
+            ta.service_amt = takeAwayItems.reduce((sum, i) => sum + parseFloat(i.svc_amt || 0), 0);
+            sales_service_dtls.push(ta);
+        }
+    }
+    order.sales_service_dtls = sales_service_dtls;
+
+    // Step 6: Prepare payment details
+    const sales_payment_dtls = [];
+    if (params?.paymentLedger?.length > 0) {
+        params.paymentLedger.forEach((p, i) => {
+            sales_payment_dtls.push({
+                payment_type: p.payment_type || 'R',
+                payment_name: p.payment_name,
+                s_no: i + 1,
+                tender_amt: p.tender_amt,
+                ref_info: p.ref_info || '',
+                currency_name: p.currency_name || '',
+                exch_rate: p.exch_rate || '1',
+                currency_amount: p.currency_amount || '0.00',
+                ...(p.terminal ? { terminal: p.terminal } : {})
+            });
+        });
+    } else if (order.net_amt) {
+        // Use 'now' but strip formatting for the reference info
+        const refInfo = now.replace(/[/ :]/g, '');
+        const paymentName = params?.paymentName || 'NETS';
+        sales_payment_dtls.push({
+            payment_type: 'R',
+            payment_name: paymentName,
+            s_no: 1,
+            tender_amt: order.net_amt,
+            ref_info: refInfo,
+            currency_name: '',
+            exch_rate: '1',
+            currency_amount: '0.00'
+        });
+    }
+
+    // Step 7: Final payload - Ensure all meta-dates use the SAME 'now'
+    const payloadOrder = {
+        ...order,
+        action,
+        try_count: tryCount,
+        device_id: '',
+        order_mode: 'PayFirst',
+        comp_code: store?.comp_code,
+        store_name: store?.store_name,
+        storename: store?.store_name,
+        register_name: 'POS01',
+        registername: 'POS01',
+        shift_code: shift,
+        shiftcode: shift,
+        order_from: 'SOK',
+        c_userid: 'WEBORDER',
+        c_date: now,           // Unified timestamp
+        m_userid: 'WEBORDER',
+        m_date: now,           // Unified timestamp
+        sales_payment_dtls,
+        order_status_id: 'P',
+        order_status_desc: 'Paid',
+        kitchen_status_id: 'P',
+        kitchen_status_desc: '',
+        table_no: '',
+        no_of_pax: 1,
+        remarks: ''
+    };
+
+    try {
+        fetch('/api/log/post-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                device_id: localStorage.getItem("sok_device_id") || '',
+                timestamp: now,
+                action,
+                payload: payloadOrder
+            })
+        }).catch(() => { }); // silent fail
+    } catch (e) {
+        console.warn('PostOrder logging failed:', e);
+    }
+
+    const formData = new URLSearchParams();
+    formData.append('jsondata', JSON.stringify([payloadOrder]));
+
+    console.log('Final formatted payload:', formData.toString());
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Step 8: POST with one session-refresh retry
+    // ─────────────────────────────────────────────────────────────────────────
+    const doPost = () =>
+        fetch(`${API_BASE}/SendPostCartItem`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString(),
+            credentials: 'include'
+        });
+
+    const isForbidden = async (response) => {
+        if (response.status === 403) return true;
+        if (response.status === 500) {
+            try {
+                const body = await response.clone().json();
+                return body?.error?.toLowerCase().includes('forbidden');
+            } catch { return false; }
+        }
+        return false;
+    };
+
+    try {
+        let res = await doPost();
+
+        if (await isForbidden(res)) {
+            console.warn(`403 Forbidden — refreshing session and retrying once`);
+            await ensureSession();
+
+            const freshTryCount = parseInt(getCookie('try-count') || 0);
+            payloadOrder.try_count = freshTryCount;
+            formData.set('jsondata', JSON.stringify([payloadOrder]));
+
+            res = await doPost();
+        }
+
+        const json = await res.json();
+        console.log('API response:', json);
+
+        if (json?.error?.toLowerCase().includes('forbidden')) {
+            return { success: false, response: null, error: json.error };
+        }
+
+        const salesNo = json?.sales_no ?? json?.data?.[0]?.output?.[0]?.sales_no ?? null;
+        const kprintItems = json?.kprint_dtls || [];
+        const receiptItems = json?.receipt_dtls || [];
+
+        return {
+            success: json?.message?.toUpperCase() === 'SUCCESS' || json?.status === true,
+            salesNo,
+            kprintItems,
+            receiptItems,
+            response: json?.data ?? null,
+        };
+
+    } catch (err) {
+        console.error('Error posting order:', err);
+        return { success: false, response: null, error: err.message };
+    }
+}
+
+
+
+export async function getPrintData(salesNo) {
+    try {
+        const res = await fetch(`${API_BASE}/GetPrintData?salesno=${encodeURIComponent(salesNo)}`, { credentials: 'include' });
+        const json = await res.json();
+
+        // 1. Extraction: JSON uses "kitchen" and "receipt" keys, not "kprint_dtls"
+        // Path: kitchen -> data[0] -> output[0]
+        const kprintOrder = json?.kitchen?.data?.[0]?.output?.[0] || null;
+
+        // Path: receipt -> data[0] -> output[0]
+        const receiptRecord = json?.receipt?.data?.[0]?.output?.[0] || null;
+
+        // 2. Parse Kitchen Items (In your JSON, these are already Arrays, not Strings)
+        let kprintItems = [];
+        if (kprintOrder?.sales_dtls) {
+            kprintItems = Array.isArray(kprintOrder.sales_dtls)
+                ? kprintOrder.sales_dtls
+                : JSON.parse(kprintOrder.sales_dtls);
+        }
+
+        // 3. Parse Receipt Items
+        let receiptSalesDtls = [];
+        if (receiptRecord?.sales_dtls) {
+            receiptSalesDtls = Array.isArray(receiptRecord.sales_dtls)
+                ? receiptRecord.sales_dtls
+                : JSON.parse(receiptRecord.sales_dtls);
+        }
+
+        return {
+            kprintOrder,
+            receiptRecord,
+            receiptSalesDtls,
+            kprintItems
+        };
+
+    } catch (err) {
+        console.error('getPrintData Error:', err);
+        return {
+            kprintOrder: null,
+            receiptRecord: null,
+            receiptSalesDtls: [],
+            kprintItems: []
+        };
+    }
+}
+export async function getPrintConfig() {
+    try {
+        const response = await fetch('/API/GetPrintConfig', {
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+        const config = await response.json();
+
+        if (!config?.Kitchen) {
+            console.warn('⚠️ getPrintConfig: Kitchen missing in response', config);
+            return null;
+        }
+
+        // Set into cache first
+        useCache().setPrintConfig(config);
+
+        // ── Log what was just set ────────────────────────────────────
+        console.group('✅ getPrintConfig() — loaded & cached');
+        console.log('Kitchen            :', !!config.Kitchen);
+        console.log('Receipt            :', !!config.Receipt);
+        console.log('TakeAway label     :', config?.Kitchen?.TakeAway?.label);
+        console.log('DineIn label       :', config?.Kitchen?.DineIn?.label);
+        console.log('TopmostTableNo     :', config?.Kitchen?.TopmostTableNo?.label);
+        console.log('TakeAway bytes     :',
+            [...(config?.Kitchen?.TakeAway?.label ?? '')]
+                .map(c => c.charCodeAt(0).toString(16).padStart(2, '0'))
+                .join(' ')
+        );
+        console.groupEnd();
+        // ─────────────────────────────────────────────────────────────
+
+        return config;
+    } catch (err) {
+        console.error('🚨 Failed to fetch PrintConfig:', err);
+        return null;
+    }
+}
+
+export async function getStoreRegisterSettings(params = {}) {
+    try {
+        const data = await apiFetch('/GetStoreRegisterSettings');
+        const settings = data?.data || [];
+
+        // SAVE TO printerSettings (Flat list of K1, K3, etc.)
+        useCache().setPrinterSettings(settings);
+        localStorage.setItem('storeKitchenPrinters', JSON.stringify(settings));
+
+        console.log("✅ Kitchen Printers (printerSettings) loaded:", settings);
+        await getPrintConfig();
+
+        return settings;
+    } catch (err) {
+        console.error('🚨 Failed to fetch Kitchen Printers:', err);
+        return null;
+    }
+}
+
+export async function getStoreRegisterPrinter(params = {}) {
+    try {
+        const data = await apiFetch('/GetStoreRegisterPrinter');
+        const settings = Array.isArray(data) ? data : data?.data || [];
+
+        // 1. Update the reactive cache (Memory)
+        useCache().setStoreRegisterSettings(settings);
+
+        // 2. ⚡ PERSIST TO LOCAL STORAGE (Disk)
+        // This ensures Printing.js can find it even after a reset
+        localStorage.setItem('storeRegisterSettings', JSON.stringify(settings));
+
+        console.log("✅ Hardware Config loaded & persisted:", settings);
+
+        // 3. Fetch the Label Templates
+        const config = await getPrintConfig();
+
+        // 4. Ensure the config is also persisted if it isn't already
+        if (config) {
+            localStorage.setItem('printConfig', JSON.stringify(config));
+        }
+
+        return settings;
+    } catch (err) {
+        console.error('🚨 Failed to fetch Hardware Settings:', err);
+        return null;
+    }
+}
+
+// Helper function for language code generation
+function generateLanguageCode(languageName) {
+    return languageName.toLowerCase().replace(/\s+/g, '-');
+}
+
+// Helper function for boolean conversion
+function bool(value) {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') return value.toLowerCase() === 'true' || value === '1';
+    if (typeof value === 'string') return value.toLowerCase() === 'true' || value === '1';
+    if (typeof value === 'number') return value === 1;
+    return false;
+}
+
+// Initialize with environment info
+console.log('🔍 Environment Info:', {
+    hostname: window.location.hostname,
+    pathname: window.location.pathname,
+    origin: window.location.origin,
+    fullUrl: window.location.href,
+    API_BASE: API_BASE,
+    detectedStoreName: getCleanStoreName()
+});
+

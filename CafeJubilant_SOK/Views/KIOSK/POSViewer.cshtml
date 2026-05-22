@@ -1,0 +1,815 @@
+﻿@{
+    ViewData["Title"] = "SOK Remote Viewer";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SOK Remote Viewer - POS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+            .header h1 {
+                font-size: 24px;
+                color: #1f2937;
+                margin-bottom: 10px;
+            }
+
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status-connected {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-disconnected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-controlling {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .screen-view {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .screen-info {
+            margin-bottom: 20px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #6b7280;
+        }
+
+        .info-value {
+            color: #1f2937;
+        }
+
+        .cart-preview {
+            margin-top: 20px;
+        }
+
+            .cart-preview h3 {
+                font-size: 18px;
+                margin-bottom: 12px;
+                color: #1f2937;
+            }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: #f9fafb;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .cart-item-details {
+            flex: 1;
+        }
+
+        .cart-item-name {
+            font-weight: 500;
+            color: #1f2937;
+        }
+
+        .cart-item-qty {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .cart-item-price {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .control-section {
+            margin-bottom: 20px;
+        }
+
+            .control-section h3 {
+                font-size: 16px;
+                margin-bottom: 12px;
+                color: #1f2937;
+            }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 8px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+            .btn-primary:hover:not(:disabled) {
+                background: #2563eb;
+            }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+            .btn-success:hover:not(:disabled) {
+                background: #059669;
+            }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+            .btn-danger:hover:not(:disabled) {
+                background: #dc2626;
+            }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+            .btn-secondary:hover:not(:disabled) {
+                background: #4b5563;
+            }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+            .btn-warning:hover:not(:disabled) {
+                background: #d97706;
+            }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .sok-selector {
+            margin-bottom: 20px;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+
+        .log {
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 15px;
+            border-radius: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+        }
+
+        .log-time {
+            color: #9ca3af;
+            margin-right: 8px;
+        }
+
+        .log-success {
+            color: #10b981;
+        }
+
+        .log-error {
+            color: #ef4444;
+        }
+
+        .log-info {
+            color: #3b82f6;
+        }
+
+        .device-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .badge-available {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-controlled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🖥️ SOK Remote Screen Viewer</h1>
+        <div class="status-bar">
+            <div id="connectionStatus" class="status-item status-disconnected">
+                🔴 Not Connected
+            </div>
+            <div class="status-item">
+                Controller ID: <strong id="controllerDeviceId">Loading...</strong>
+            </div>
+            <div id="sessionStatus" class="status-item status-disconnected" style="display:none;">
+                No Active Session
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Screen View -->
+        <div class="screen-view">
+            <h2>📺 Live Screen View</h2>
+
+            <div class="sok-selector">
+                <label><strong>Select SOK Device:</strong></label>
+                <select id="sokDeviceSelect" onchange="selectSOKDevice()">
+                    <option value="">-- Select SOK Device --</option>
+                </select>
+                <button class="btn-success" onclick="loadSOKDevices()">🔄 Refresh Device List</button>
+                <button class="btn-primary" onclick="requestControl()" id="connectBtn" disabled>
+                    🎮 Take Control
+                </button>
+            </div>
+
+            <div id="screenContent">
+                <div class="empty-state">
+                    <div style="font-size: 48px; margin-bottom: 16px;">📺</div>
+                    <p>Select a SOK device and take control to view its screen</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="control-section">
+                <h3>🎮 Remote Control</h3>
+                <button class="btn-primary" onclick="refreshScreen()" id="refreshBtn" disabled>
+                    🔄 Refresh Screen
+                </button>
+                <button class="btn-secondary" onclick="openCart()" id="openCartBtn" disabled>
+                    🛒 Open Cart
+                </button>
+                <button class="btn-secondary" onclick="closeCart()" id="closeCartBtn" disabled>
+                    ❌ Close Cart
+                </button>
+                <button class="btn-danger" onclick="clearCart()" id="clearCartBtn" disabled>
+                    🗑️ Clear Cart
+                </button>
+                <button class="btn-warning" onclick="releaseControl()" id="releaseBtn" disabled>
+                    👋 Release Control
+                </button>
+            </div>
+
+            <div class="control-section">
+                <h3>📢 Send Message</h3>
+                <input type="text" id="messageTitle" placeholder="Message title...">
+                <textarea id="messageInput" placeholder="Type message to customer..."></textarea>
+                <button class="btn-primary" onclick="sendCustomMessage()" id="sendMsgBtn" disabled>
+                    💬 Send Message
+                </button>
+            </div>
+
+            <div class="control-section">
+                <h3>📋 Activity Log</h3>
+                <div id="activityLog" class="log">
+                    <div class="log-entry log-info">
+                        <span class="log-time">[${new Date().toLocaleTimeString()}]</span>
+                        System initialized
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentSOK = null;
+        let currentSession = null;
+        let controllerDeviceId = null;
+        let availableDevices = [];
+        let screenState = null;
+
+        // API Base URL
+        const API_BASE = window.location.origin + '/api/RemoteControl';
+
+        // Initialize
+        window.onload = function() {
+            controllerDeviceId = 'VIEWER_' + Date.now();
+            document.getElementById('controllerDeviceId').textContent = controllerDeviceId;
+            log('System initialized', 'info');
+
+            // Connect WebSocket
+            connectWebSocket();
+
+            // Load SOK devices
+            loadSOKDevices();
+
+            // Auto-refresh devices every 10 seconds
+            setInterval(loadSOKDevices, 10000);
+        };
+
+        // WebSocket Connection
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const url = `${protocol}//${window.location.host}/ws/queue?deviceId=${controllerDeviceId}&type=pos`;
+
+            log('Connecting WebSocket...', 'info');
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                log('WebSocket connected', 'success');
+                updateConnectionStatus(true);
+            };
+
+            ws.onmessage = (event) => {
+                handleWebSocketMessage(event.data);
+            };
+
+            ws.onerror = (error) => {
+                log('WebSocket error', 'error');
+                console.error(error);
+            };
+
+            ws.onclose = () => {
+                log('WebSocket closed, reconnecting...', 'error');
+                updateConnectionStatus(false);
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        function handleWebSocketMessage(data) {
+            try {
+                const message = JSON.parse(data);
+                console.log('📨 Received:', message);
+
+                switch(message.action) {
+                    case 'screen_sync':
+                        screenState = message.state;
+                        updateScreenView(message.state);
+                        log('Screen updated', 'success');
+                        break;
+                    case 'control_active':
+                        log('Control session active', 'success');
+                        break;
+                    case 'control_released':
+                        log('Control released', 'info');
+                        handleControlReleased();
+                        break;
+                }
+            } catch(e) {
+                console.error('Parse error:', e);
+            }
+        }
+
+        // Load available SOK devices
+        async function loadSOKDevices() {
+            try {
+                const response = await fetch(`${API_BASE}/sok-devices`);
+                const data = await response.json();
+
+                if (data.success) {
+                    availableDevices = data.devices;
+                    updateSOKDeviceList(data.devices);
+                    log(`Found ${data.devices.length} SOK device(s)`, 'info');
+                } else {
+                    log('Failed to load devices', 'error');
+                }
+            } catch (error) {
+                log('Error loading devices: ' + error.message, 'error');
+            }
+        }
+
+        function updateSOKDeviceList(devices) {
+            const select = document.getElementById('sokDeviceSelect');
+            const currentValue = select.value;
+
+            select.innerHTML = '<option value="">-- Select SOK Device --</option>';
+
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.textContent = `${device.deviceId} ${device.isControlled ? '🔒 (In Use)' : '✅ (Available)'}`;
+                option.dataset.controlled = device.isControlled;
+                select.appendChild(option);
+            });
+
+            if (currentValue) {
+                select.value = currentValue;
+            }
+        }
+
+        function selectSOKDevice() {
+            const select = document.getElementById('sokDeviceSelect');
+            const selectedDeviceId = select.value;
+
+            if (selectedDeviceId) {
+                document.getElementById('connectBtn').disabled = false;
+                log(`Selected SOK: ${selectedDeviceId}`, 'info');
+            } else {
+                document.getElementById('connectBtn').disabled = true;
+            }
+        }
+
+        // Request control of SOK device
+        async function requestControl() {
+            const select = document.getElementById('sokDeviceSelect');
+            const sokDeviceId = select.value;
+
+            if (!sokDeviceId) {
+                alert('Please select a SOK device first');
+                return;
+            }
+
+            try {
+                log(`Requesting control of ${sokDeviceId}...`, 'info');
+
+                const response = await fetch(`${API_BASE}/request-access`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        controllerDeviceId: controllerDeviceId,
+                        sokDeviceId: sokDeviceId,
+                        message: 'POS Viewer requesting screen access',
+                        forceOverride: false
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentSOK = sokDeviceId;
+                    currentSession = data.sessionId;
+                    updateSessionStatus(true);
+                    enableControls(true);
+                    log(`✅ Control granted! Session: ${data.sessionId}`, 'success');
+
+                    // Request initial screen sync
+                    setTimeout(() => refreshScreen(), 500);
+                } else {
+                    log(`❌ ${data.error}`, 'error');
+                    alert(data.error + (data.hint ? '\n\n' + data.hint : ''));
+                }
+            } catch (error) {
+                log('Error requesting control: ' + error.message, 'error');
+            }
+        }
+
+        // Release control
+        async function releaseControl() {
+            if (!currentSOK || !currentSession) {
+                return;
+            }
+
+            try {
+                log('Releasing control...', 'info');
+
+                const response = await fetch(`${API_BASE}/release-control`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: currentSession,
+                        sokDeviceId: currentSOK
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    log('✅ Control released', 'success');
+                    handleControlReleased();
+                } else {
+                    log(`❌ ${data.error}`, 'error');
+                }
+            } catch (error) {
+                log('Error releasing control: ' + error.message, 'error');
+            }
+        }
+
+        function handleControlReleased() {
+            currentSOK = null;
+            currentSession = null;
+            screenState = null;
+            updateSessionStatus(false);
+            enableControls(false);
+
+            // Clear screen
+            document.getElementById('screenContent').innerHTML = `
+                <div class="empty-state">
+                    <div style="font-size: 48px; margin-bottom: 16px;">📺</div>
+                    <p>Control released. Select another device to continue.</p>
+                </div>
+            `;
+        }
+
+        // Send command to SOK
+        async function sendCommand(command, data = null) {
+            if (!currentSOK) {
+                log('No active control session', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/send-command`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: currentSession,
+                        sokDeviceId: currentSOK,
+                        command: command,
+                        data: data
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    log(`✅ Command sent: ${command}`, 'success');
+                } else {
+                    log(`❌ Command failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                log(`Error sending command: ${error.message}`, 'error');
+            }
+        }
+
+        // Control functions
+        async function refreshScreen() {
+            try {
+                const response = await fetch(`${API_BASE}/request-screen-sync`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sokDeviceId: currentSOK
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    log('Screen sync requested', 'info');
+                } else {
+                    log(`Failed to sync: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function openCart() {
+            sendCommand('open_cart');
+        }
+
+        function closeCart() {
+            sendCommand('close_cart');
+        }
+
+        function clearCart() {
+            if (confirm('Are you sure you want to clear the cart?')) {
+                sendCommand('clear_cart');
+            }
+        }
+
+        function sendCustomMessage() {
+            const title = document.getElementById('messageTitle').value || 'Message from POS';
+            const message = document.getElementById('messageInput').value;
+
+            if (!message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+
+            sendCommand('show_message', {
+                title: title,
+                message: message,
+                type: 'info',
+                duration: 5000
+            });
+
+            // Clear inputs
+            document.getElementById('messageTitle').value = '';
+            document.getElementById('messageInput').value = '';
+        }
+
+        // Update screen view
+        function updateScreenView(state) {
+            const content = document.getElementById('screenContent');
+
+            const cartItems = state.cartItems || [];
+            const summary = state.orderSummary || {};
+
+            let cartHTML = '';
+            if (cartItems.length > 0) {
+                cartHTML = cartItems.map(item => `
+                    <div class="cart-item">
+                        <div class="cart-item-details">
+                            <div class="cart-item-name">${item.item_name}</div>
+                            <div class="cart-item-qty">Qty: ${item.qty}</div>
+                        </div>
+                        <div class="cart-item-price">$${item.sub_total?.toFixed(2) || '0.00'}</div>
+                    </div>
+                `).join('');
+            } else {
+                cartHTML = '<div class="empty-state">Cart is empty</div>';
+            }
+
+            content.innerHTML = `
+                <div class="screen-info">
+                    <div class="info-row">
+                        <span class="info-label">Current Screen:</span>
+                        <span class="info-value">${state.screen || 'Unknown'}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Active Category:</span>
+                        <span class="info-value">${state.activeCategory || 'None'}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Cart Items:</span>
+                        <span class="info-value">${state.cartItemCount || 0}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Order Type:</span>
+                        <span class="info-value">${state.orderType || 'Not set'}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Last Update:</span>
+                        <span class="info-value">${new Date(state.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                </div>
+
+                <div class="cart-preview">
+                    <h3>🛒 Cart Contents</h3>
+                    ${cartHTML}
+
+                    ${state.cartItemCount > 0 ? `
+                    <div style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 6px;">
+                        <div class="info-row" style="border: none;">
+                            <span class="info-label">Subtotal:</span>
+                            <span class="info-value">$${summary.subtotal?.toFixed(2) || '0.00'}</span>
+                        </div>
+                        <div class="info-row" style="border: none;">
+                            <span class="info-label">Service Charge:</span>
+                            <span class="info-value">$${summary.serviceCharge?.toFixed(2) || '0.00'}</span>
+                        </div>
+                        <div class="info-row" style="border: none;">
+                            <span class="info-label">GST:</span>
+                            <span class="info-value">$${summary.gst?.toFixed(2) || '0.00'}</span>
+                        </div>
+                        <div class="info-row" style="border: none; font-weight: bold; font-size: 16px;">
+                            <span class="info-label">Total:</span>
+                            <span class="info-value">$${summary.total?.toFixed(2) || '0.00'}</span>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // UI Helpers
+        function updateConnectionStatus(connected) {
+            const status = document.getElementById('connectionStatus');
+            if (connected) {
+                status.className = 'status-item status-connected';
+                status.innerHTML = '🟢 WebSocket Connected';
+            } else {
+                status.className = 'status-item status-disconnected';
+                status.innerHTML = '🔴 WebSocket Disconnected';
+            }
+        }
+
+        function updateSessionStatus(active) {
+            const status = document.getElementById('sessionStatus');
+            status.style.display = 'flex';
+
+            if (active) {
+                status.className = 'status-item status-controlling';
+                status.innerHTML = `🎮 Controlling: ${currentSOK}`;
+            } else {
+                status.className = 'status-item status-disconnected';
+                status.innerHTML = '⭕ No Active Session';
+            }
+        }
+
+        function enableControls(enabled) {
+            document.getElementById('refreshBtn').disabled = !enabled;
+            document.getElementById('openCartBtn').disabled = !enabled;
+            document.getElementById('closeCartBtn').disabled = !enabled;
+            document.getElementById('clearCartBtn').disabled = !enabled;
+            document.getElementById('sendMsgBtn').disabled = !enabled;
+            document.getElementById('releaseBtn').disabled = !enabled;
+            document.getElementById('connectBtn').disabled = enabled;
+        }
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('activityLog');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="log-time">[${time}]</span>${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+
+            console.log(`[${time}] ${message}`);
+        }
+    </script>
+</body>
+</html>
