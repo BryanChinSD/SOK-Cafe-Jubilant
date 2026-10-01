@@ -549,6 +549,11 @@ export function kitchenPrint(type, data, isGroup, printerNameOverride, tableFrom
                             summaryParentSnos.has(i.parent_sno) || summaryParentSnos.has(i.s_no)
                         );
 
+                        summaryItems.sort((a, b) =>
+                            (a.parent_sno - b.parent_sno) ||
+                            ((b.s_no === b.parent_sno) - (a.s_no === a.parent_sno)) ||
+                            (a.s_no - b.s_no));
+
                         const lstTakeEatSummary = Array.from(new Set(summaryItems.map((o) => o.take_away_item)));
 
                         lstTakeEatSummary?.forEach((te) => {
@@ -858,7 +863,8 @@ export function kitchenPrint(type, data, isGroup, printerNameOverride, tableFrom
                                 );
 
                                 if (lstCombo.length === 0) continue;
-
+                                lstCombo.sort((a, b) =>
+                                    ((b.s_no === v.s_no) - (a.s_no === v.s_no)) || (a.s_no - b.s_no));
                                 // Mark these items as printed to avoid re-printing in subsequent printer loops
                                 uniqueItemPool.forEach((s) => {
                                     const inCombo = lstCombo.some((i) =>
@@ -933,6 +939,7 @@ export function kitchenPrint(type, data, isGroup, printerNameOverride, tableFrom
                                     func: () => print(pdf, resolvedPrinterValue, pdfName),
                                 });
                                 console.log(`✅ [kitchen] SINGLE PDF queued for [${printer_name}] → [${resolvedPrinterValue}]`);
+                                //doc.save(pdfName);
                             }
                         }
                     }
